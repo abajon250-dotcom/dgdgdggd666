@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Дашборд{% endblock %}
+{% block content %}
+<div class="fade-in">
+    <div class="row g-4">
+        <div class="col-md-3"><div class="stat-card"><div class="stat-icon">👥</div><div class="stat-value">{{ stats.total_users }}</div><div class="stat-label">Пользователей</div></div></div>
+        <div class="col-md-3"><div class="stat-card"><div class="stat-icon">📄</div><div class="stat-value">{{ stats.submissions_today }}</div><div class="stat-label">Заявок сегодня</div></div></div>
+        <div class="col-md-3"><div class="stat-card"><div class="stat-icon">💰</div><div class="stat-value">{{ stats.earned_today }}$</div><div class="stat-label">Выплачено сегодня</div></div></div>
+        <div class="col-md-3"><div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-value">{{ stats.pending_withdrawals }}</div><div class="stat-label">Заявок на вывод</div></div></div>
+    </div>
+    <div class="row mt-4">
+        <div class="col-md-6"><div class="chart-card"><h5>📈 Динамика заявок</h5><canvas id="submissionsChart" height="200"></canvas></div></div>
+        <div class="col-md-6"><div class="chart-card"><h5>🥧 Соотношение заявок</h5><canvas id="statusChart" height="200"></canvas><div class="mt-2 text-center"><span class="badge bg-success">Принятые: {{ ratio.accepted }} ({{ ratio.accepted_pct }}%)</span> <span class="badge bg-danger">Отклонённые: {{ ratio.rejected }} ({{ ratio.rejected_pct }}%)</span> <span class="badge bg-warning">В обработке: {{ ratio.pending }} ({{ ratio.pending_pct }}%)</span></div></div></div>
+    </div>
+    <div class="row mt-4">
+        <div class="col-md-8"><div class="card p-3"><h5>📋 Последние заявки</h5><div class="table-responsive"><table class="table"><thead><tr><th>ID</th><th>Пользователь</th><th>Номер</th><th>Оператор</th><th>Сумма</th><th>Статус</th><th>Действия</th></tr></thead><tbody>{% for sub in recent_submissions %}<tr><td>#{{ sub.id }}</td><td>@user{{ sub.user_id }}</td><td>{{ sub.phone }}</td><td>{{ sub.operator }}</td><td>{{ sub.price }}$</td><td>{% if sub.status == 'pending' %}<span class="badge bg-warning">Новая</span>{% elif sub.status == 'taken' %}<span class="badge bg-info">В работе</span>{% elif sub.status == 'accepted' %}<span class="badge bg-success">Принята</span>{% elif sub.status == 'rejected' %}<span class="badge bg-danger">Отклонена</span>{% else %}<span class="badge bg-secondary">{{ sub.status }}</span>{% endif %}</td><td><button class="btn btn-sm btn-primary" onclick="openModal('subModal{{ sub.id }}')">...</button></td></tr>{% endfor %}</tbody></table></div></div></div>
+        <div class="col-md-4"><div class="card p-3"><h5>🔔 Уведомления</h5><div class="notification-list">{% for n in notifications %}<div class="notification-item">{{ n.text }}</div>{% endfor %}</div><button class="btn btn-outline-primary w-100 mt-3">Показать все</button></div><div class="card mt-4 p-3"><h5>⚡ Быстрые действия</h5><div class="d-grid gap-2"><button class="btn btn-primary" onclick="location.href='/broadcast'">📢 Новая рассылка</button><button class="btn btn-secondary" onclick="location.href='/reports'">📊 Создать отчёт</button><button class="btn btn-secondary" onclick="location.href='/operators'">📡 Добавить оператора</button><button class="btn btn-secondary" onclick="location.href='/settings'">⚙️ Настройки</button><button class="btn btn-secondary" onclick="location.href='/users'">👥 Добавить пользователя</button><button class="btn btn-secondary" onclick="location.href='/export/stats'">📤 Экспорт данных</button></div></div></div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+    fetchAndRender('7d');
+    function fetchAndRender(p) {
+        fetch(`/api/analytics/daily?period=${p}`).then(r=>r.json()).then(data=>{
+            if(window.chart) window.chart.destroy();
+            window.chart = new Chart(document.getElementById('submissionsChart'),{type:'line',data:{labels:data.dates,datasets:[{label:'Заявки',data:data.submissions,borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,0.1)',tension:0.3,fill:true},{label:'Выплаты ($)',data:data.revenue,borderColor:'#10b981',backgroundColor:'rgba(16,185,129,0.1)',tension:0.3,fill:true}]},options:{responsive:true}});
+        });
+    }
+    new Chart(document.getElementById('statusChart'),{type:'doughnut',data:{labels:['Принятые','Отклонённые','В обработке'],datasets:[{data:[{{ ratio.accepted }},{{ ratio.rejected }},{{ ratio.pending }}],backgroundColor:['#10b981','#ef4444','#f59e0b'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
+</script>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Подписки{% endblock %}
+{% block content %}
+<h2 class="mb-4">💳 Управление подписками</h2>
+<div class="card p-3">
+    <table class="table">
+        <thead><tr><th>Пользователь</th><th>План</th><th>Статус</th><th>Дата окончания</th><th>Автопродление</th><th>Действия</th></tr></thead>
+        <tbody>
+            {% for sub in subscriptions %}
+            <tr>
+                <td>@{{ sub.username }} ({{ sub.user_id }})</td>
+                <td>
+                    <form method="post" action="/subscriptions/update" class="d-inline">
+                        <input type="hidden" name="user_id" value="{{ sub.user_id }}">
+                        <select name="plan" class="form-select form-select-sm d-inline w-auto">
+                            <option value="free" {% if sub.plan == 'free' %}selected{% endif %}>Free</option>
+                            <option value="pro" {% if sub.plan == 'pro' %}selected{% endif %}>Pro</option>
+                            <option value="enterprise" {% if sub.plan == 'enterprise' %}selected{% endif %}>Enterprise</option>
+                        </select>
+                        <select name="status" class="form-select form-select-sm d-inline w-auto">
+                            <option value="active" {% if sub.status == 'active' %}selected{% endif %}>Активна</option>
+                            <option value="expired" {% if sub.status == 'expired' %}selected{% endif %}>Истекла</option>
+                            <option value="cancelled" {% if sub.status == 'cancelled' %}selected{% endif %}>Отменена</option>
+                        </select>
+                        <input type="date" name="end_date" value="{{ sub.end_date.strftime('%Y-%m-%d') if sub.end_date else '' }}">
+                        <input type="checkbox" name="auto_renew" value="true" {% if sub.auto_renew %}checked{% endif %}> Авто
+                        <button type="submit" class="btn btn-sm btn-primary">Обновить</button>
+                    </form>
+                </td>
+                <td>{{ sub.plan }}</td>
+                <td>{{ sub.status }}</td>
+                <td>{{ sub.end_date.strftime('%d.%m.%Y') if sub.end_date else '—' }}</td>
+                <td>{{ 'Да' if sub.auto_renew else 'Нет' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

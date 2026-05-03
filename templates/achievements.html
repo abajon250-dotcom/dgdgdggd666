@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Ачивки и уровни{% endblock %}
+{% block content %}
+<h2 class="mb-4">🏆 Ачивки</h2>
+<div class="card p-3 mb-4">
+    <h5>Выдать ачивку</h5>
+    <form method="post" action="/achievements/grant" class="row g-2">
+        <div class="col-md-4"><input type="number" name="user_id" class="form-control" placeholder="ID пользователя" required></div>
+        <div class="col-md-6"><input type="text" name="achievement" class="form-control" placeholder="Название ачивки" required></div>
+        <div class="col-md-2"><button type="submit" class="btn btn-success w-100">Выдать</button></div>
+    </form>
+</div>
+<div class="card p-3 mb-4">
+    <h5>Таблица лидеров (уровни)</h5>
+    <table class="table"><thead><tr><th>Пользователь</th><th>Уровень</th><th>XP</th></tr></thead><tbody>{% for r in ranks %}<tr><td>{{ r.username }}</td><td>{{ r.level }}</td><td>{{ r.xp }}</td></tr>{% endfor %}</tbody></table>
+</div>
+<div class="card p-3">
+    <h5>Недавние ачивки</h5>
+    <table class="table"><thead><tr><th>Пользователь</th><th>Ачивка</th><th>Дата</th></tr></thead><tbody>{% for a in achievements %}<tr><td>{{ a.username }}</td><td>{{ a.achievement }}</td><td>{{ a.earned_at.strftime('%d.%m.%Y') }}</td></tr>{% endfor %}</tbody></table>
+</div>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Чёрный список{% endblock %}
+{% block content %}
+<h2 class="mb-4">🚫 Чёрный список номеров</h2>
+<div class="card p-4 mb-4">
+    <h5>➕ Добавить номер</h5>
+    <form method="post" action="/blacklist/add" class="row g-3">
+        <div class="col-md-6">
+            <input type="text" name="phone" class="form-control" placeholder="Номер (79991234567)" required>
+        </div>
+        <div class="col-md-6">
+            <button type="submit" class="btn btn-primary w-100">Добавить</button>
+        </div>
+    </form>
+</div>
+<div class="card p-3">
+    <h5>📋 Список</h5>
+    <table class="table">
+        <thead><tr><th>Номер</th><th>Дата добавления</th><th></th></tr></thead>
+        <tbody>
+            {% for item in blacklist %}
+            <tr>
+                <td><code>{{ item.phone }}</code></td>
+                <td>{{ item.created_at.strftime('%d.%m.%Y %H:%M') if item.created_at else '' }}</td>
+                <td>
+                    <form method="post" action="/blacklist/remove" onsubmit="return confirm('Удалить?');">
+                        <input type="hidden" name="phone" value="{{ item.phone }}">
+                        <button type="submit" class="btn btn-sm btn-danger">🗑 Удалить</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

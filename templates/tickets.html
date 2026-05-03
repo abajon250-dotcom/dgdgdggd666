@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Тикеты поддержки{% endblock %}
+{% block content %}
+<h2 class="mb-4">🎫 Открытые тикеты</h2>
+<div class="row g-4">
+    {% for ticket in tickets %}
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">
+                Тикет #{{ ticket.id }} ({{ ticket.category }})
+            </div>
+            <div class="card-body">
+                <p><strong>Сообщение:</strong> {{ ticket.message }}</p>
+                <p class="text-muted small">от пользователя ID {{ ticket.user_id }}, {{ ticket.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
+                <form method="post" action="/tickets/answer">
+                    <input type="hidden" name="ticket_id" value="{{ ticket.id }}">
+                    <div class="mb-2">
+                        <textarea name="response_text" class="form-control" rows="3" placeholder="Ваш ответ..." required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Ответить и закрыть</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12"><div class="alert alert-info">Нет открытых тикетов</div></div>
+    {% endfor %}
+</div>
+{% endblock %}

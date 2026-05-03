@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Операторы{% endblock %}
+{% block content %}
+<h2 class="mb-4">📡 Управление операторами</h2>
+<div class="card p-3">
+    <table class="table">
+        <thead>
+            <tr><th>Оператор</th><th>ХОЛД цена</th><th>БХ цена</th><th>Лимит слотов</th><th></th></tr>
+        </thead>
+        <tbody>
+            {% for op in operators %}
+            <tr>
+                <td><strong>{{ op.name }}</strong></td>
+                <td>
+                    <form method="post" action="/operators/price" class="d-flex gap-2">
+                        <input type="hidden" name="operator" value="{{ op.name }}">
+                        <input type="number" step="0.5" name="price_hold" value="{{ op.price_hold }}" class="form-control form-control-sm w-25" required>
+                        <input type="number" step="0.5" name="price_bh" value="{{ op.price_bh }}" class="form-control form-control-sm w-25" required>
+                        <button type="submit" class="btn btn-sm btn-primary">Обновить</button>
+                    </form>
+                </td>
+                <td>
+                    <form method="post" action="/operators/slot" class="d-flex gap-2">
+                        <input type="hidden" name="operator" value="{{ op.name }}">
+                        <input type="number" name="slot_limit" value="{{ op.slot_limit }}" class="form-control form-control-sm w-50">
+                        <button type="submit" class="btn btn-sm btn-secondary">Установить</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

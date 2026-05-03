@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}API-ключи{% endblock %}
+{% block content %}
+<h2 class="mb-4">🔑 Управление API-ключами</h2>
+<div class="card p-4 mb-4">
+    <h5>➕ Создать API-ключ</h5>
+    <form method="post" action="/api-keys/create" class="row g-2">
+        <div class="col-md-4"><input type="number" name="user_id" class="form-control" placeholder="ID пользователя" required></div>
+        <div class="col-md-6"><input type="text" name="permissions" class="form-control" placeholder="Права (например, read,write)"></div>
+        <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">Создать</button></div>
+    </form>
+</div>
+<div class="card p-3">
+    <h5>📋 Список ключей</h5>
+    <table class="table">
+        <thead><tr><th>ID</th><th>Пользователь</th><th>Ключ</th><th>Права</th><th>Создан</th><th>Последнее использование</th><th></th></tr></thead>
+        <tbody>
+            {% for key in api_keys %}
+            <tr>
+                <td>{{ key.id }}</td>
+                <td>{{ key.user_id }}</td>
+                <td><code>{{ key.api_key[:8] }}...</code></td>
+                <td>{{ key.permissions }}</td>
+                <td>{{ key.created_at.strftime('%d.%m.%Y') }}</td>
+                <td>{{ key.last_used.strftime('%d.%m.%Y %H:%M') if key.last_used else '—' }}</td>
+                <td>
+                    <form method="post" action="/api-keys/revoke" onsubmit="return confirm('Отозвать ключ?');">
+                        <input type="hidden" name="key_id" value="{{ key.id }}">
+                        <button type="submit" class="btn btn-sm btn-danger">Отозвать</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Рассылка{% endblock %}
+{% block content %}
+<h2 class="mb-4">📢 Массовая рассылка</h2>
+<div class="card p-4">
+    <form method="post" action="/broadcast/send">
+        <div class="mb-3">
+            <label class="form-label">Кому отправить</label>
+            <select name="target" class="form-select">
+                <option value="all">Всем пользователям</option>
+                <option value="user">Только обычным пользователям</option>
+                <option value="worker">Только работникам</option>
+                <option value="admin">Только администраторам</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Текст сообщения (можно с HTML)</label>
+            <textarea name="message" class="form-control" rows="6" required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary w-100">Отправить рассылку</button>
+    </form>
+</div>
+{% endblock %}

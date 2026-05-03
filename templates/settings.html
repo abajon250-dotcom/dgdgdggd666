@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Настройки{% endblock %}
+{% block content %}
+<h2 class="mb-4">⚙️ Настройки сайта</h2>
+<div class="row g-4">
+    {% for text in texts %}
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">{{ text.key }}</div>
+            <div class="card-body">
+                <form method="post" action="/settings/text">
+                    <input type="hidden" name="key" value="{{ text.key }}">
+                    <textarea name="value" class="form-control mb-2" rows="5">{{ text.value }}</textarea>
+                    <button type="submit" class="btn btn-primary w-100">Сохранить</button>
+                </form>
+                <small class="text-muted">Обновлено: {{ text.updated_at.strftime('%d.%m.%Y %H:%M') if text.updated_at else 'никогда' }}</small>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

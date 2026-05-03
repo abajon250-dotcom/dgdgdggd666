@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Работники{% endblock %}
+{% block content %}
+<h2 class="mb-4">👔 Управление работниками</h2>
+<div class="card p-4 mb-4">
+    <h5>➕ Добавить работника</h5>
+    <form method="post" action="/workers/add" class="row g-2">
+        <div class="col-md-4"><input type="number" name="user_id" class="form-control" placeholder="ID пользователя" required></div>
+        <div class="col-md-6"><input type="text" name="permissions" class="form-control" placeholder="Права (например, can_pay,can_block)"></div>
+        <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">Добавить</button></div>
+    </form>
+</div>
+<div class="card p-3">
+    <h5>📋 Список работников</h5>
+    <table class="table">
+        <thead><tr><th>ID</th><th>Username</th><th>Права</th><th></th></tr></thead>
+        <tbody>
+            {% for w in workers %}
+            <tr>
+                <td>{{ w.user_id }}</td>
+                <td>@{{ w.username }}</td>
+                <td>{{ w.permissions or '—' }}</td>
+                <td>
+                    <form method="post" action="/workers/remove" onsubmit="return confirm('Удалить работника?');">
+                        <input type="hidden" name="user_id" value="{{ w.user_id }}">
+                        <button type="submit" class="btn btn-sm btn-danger">Удалить</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Статистика{% endblock %}
+{% block content %}
+<h2 class="mb-4">📊 Детальная статистика</h2>
+<div class="row g-4">
+    <div class="col-md-6">
+        <div class="card p-3">
+            <h5>Соотношение статусов заявок</h5>
+            <canvas id="statusChart" height="200"></canvas>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card p-3">
+            <h5>Топ операторов</h5>
+            <canvas id="operatorsChart" height="200"></canvas>
+        </div>
+    </div>
+</div>
+<script>
+    fetch('/api/stats/ratio').then(r=>r.json()).then(data=>{
+        new Chart(document.getElementById('statusChart'), {type:'doughnut', data:{labels:Object.keys(data), datasets:[{data:Object.values(data), backgroundColor:['#10b981','#ef4444','#f59e0b']}]}});
+    });
+    fetch('/api/stats/top-operators').then(r=>r.json()).then(data=>{
+        new Chart(document.getElementById('operatorsChart'), {type:'bar', data:{labels:data.names, datasets:[{label:'Кол-во', data:data.counts, backgroundColor:'#6366f1'}]}});
+    });
+</script>
+{% endblock %}

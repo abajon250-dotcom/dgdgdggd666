@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Аналитика{% endblock %}
+{% block content %}
+<h2 class="mb-4">📈 Аналитика</h2>
+<div class="card p-3 mb-4">
+    <h5>Заявки по дням</h5>
+    <canvas id="submissionsChart" height="100"></canvas>
+</div>
+<div class="card p-3">
+    <h5>Выплаты по дням</h5>
+    <canvas id="revenueChart" height="100"></canvas>
+</div>
+<script>
+    fetch('/api/analytics/daily?period=7d').then(r=>r.json()).then(data=>{
+        new Chart(document.getElementById('submissionsChart'), {type:'line', data:{labels:data.dates, datasets:[{label:'Заявки', data:data.submissions, borderColor:'#6366f1', tension:0.3}]}});
+        new Chart(document.getElementById('revenueChart'), {type:'line', data:{labels:data.dates, datasets:[{label:'Выплаты ($)', data:data.revenue, borderColor:'#10b981', tension:0.3}]}});
+    });
+</script>
+{% endblock %}

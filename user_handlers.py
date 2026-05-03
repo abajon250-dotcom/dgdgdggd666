@@ -24,7 +24,7 @@ from utils import (
 )
 from user_keyboards import (
     main_menu, profile_keyboard, booking_menu, back_button,
-    subscription_check_button, get_accept_terms_keyboard, operators_for_booking
+    subscription_check_button, get_accept_terms_keyboard, operators_for_booking, ticket_categories
 )
 from admin_keyboards import pending_actions
 

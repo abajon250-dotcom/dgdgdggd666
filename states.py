@@ -24,3 +24,6 @@ class TicketAnswer(StatesGroup):
 
 class LanguageState(StatesGroup):
     waiting_for_lang = State()
+
+class CryptoCheckState(StatesGroup):
+    waiting_for_check = State()

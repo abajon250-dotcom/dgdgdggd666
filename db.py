@@ -839,3 +839,40 @@ async def auto_create_withdraw_requests_for_all():
             """, user_id, amount)
             # Обнуляем earned_today
             await conn.execute("UPDATE users SET earned_today = 0 WHERE user_id = $1", user_id)
+
+# ---------- Тикеты ----------
+async def create_ticket(user_id: int, category: str, message: str) -> int:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            INSERT INTO tickets (user_id, category, message, created_at, updated_at, status)
+            VALUES ($1, $2, $3, NOW(), NOW(), 'open') RETURNING id
+        """, user_id, category, message)
+        return row['id']
+
+async def get_open_tickets() -> List[Dict]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT * FROM tickets WHERE status = 'open' ORDER BY created_at ASC")
+        return [dict(row) for row in rows]
+
+async def answer_ticket(ticket_id: int, response: str, admin_id: int) -> Optional[int]:
+    """Возвращает user_id владельца тикета"""
+    ticket = await fetch_ticket(ticket_id)
+    if not ticket or ticket['status'] != 'open':
+        return None
+    user_id = ticket['user_id']
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            UPDATE tickets SET admin_response = $1, status = 'closed', updated_at = NOW(), closed_at = NOW()
+            WHERE id = $2
+        """, response, ticket_id)
+        await add_audit_log(admin_id, "answer_ticket", f"Ticket #{ticket_id}: {response[:50]}...")
+    return user_id
+
+async def fetch_ticket(ticket_id: int) -> Optional[Dict]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT * FROM tickets WHERE id = $1", ticket_id)
+        return dict(row) if row else None

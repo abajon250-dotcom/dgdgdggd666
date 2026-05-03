@@ -17,7 +17,7 @@ from db import (
     get_pending_withdraw_requests, update_withdraw_request,
     get_pending_submissions_by_mode
 )
-from states import AdminSetPrice, AdminSetSlot, BroadcastState
+from states import AdminSetPrice, AdminSetSlot, BroadcastState, TicketAnswer, CryptoCheckState
 from utils import calculate_rank
 from keyboards.admin_keyboards import (
     admin_main_menu, pending_actions, operators_price_edit,

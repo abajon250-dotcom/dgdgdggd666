@@ -821,3 +821,21 @@ async def get_new_users_count(days: int = 1) -> int:
     pool = await get_pool()
     async with pool.acquire() as conn:
         return await conn.fetchval("SELECT COUNT(*) FROM users WHERE registered_at >= NOW() - make_interval(days => $1)", days) or 0
+
+async def auto_create_withdraw_requests_for_all():
+    """Автоматически создаёт заявки на вывод для всех пользователей, у которых earned_today > 0"""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT user_id, earned_today FROM users WHERE earned_today > 0")
+        for row in rows:
+            user_id = row['user_id']
+            amount = row['earned_today']
+            if amount <= 0:
+                continue
+            # Вставляем заявку на вывод
+            await conn.execute("""
+                INSERT INTO withdraw_requests (user_id, amount, requested_at, status)
+                VALUES ($1, $2, NOW(), 'pending')
+            """, user_id, amount)
+            # Обнуляем earned_today
+            await conn.execute("UPDATE users SET earned_today = 0 WHERE user_id = $1", user_id)

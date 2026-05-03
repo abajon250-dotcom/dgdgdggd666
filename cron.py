@@ -1,7 +1,5 @@
 # cron.py
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from db import auto_create_withdraw_requests_for_all
-from daily_summary import send_daily_summary
 
 async def reset_daily_earnings():
     from db import get_pool

@@ -17,9 +17,10 @@ from db import (
     get_api_keys, create_api_key, revoke_api_key, get_subscriptions, update_subscription,
     get_achievements_list, get_ranks_list, grant_achievement, get_audit_log,
     get_pending_withdraw_requests, update_withdraw_request, reorder_operators,
-    fetch, execute, calculate_rank, accept_submission_now, reject_submission,
-    get_user_qr_last_30_days, set_user_role, get_operator_prices
+    fetch, execute, accept_submission_now, reject_submission,
+    get_user_qr_last_30_days, set_user_role
 )
+from utils import calculate_rank
 from ws_manager import manager
 from config import ADMIN_IDS
 

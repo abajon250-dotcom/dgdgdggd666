@@ -1,18 +1,24 @@
 {% extends "base.html" %}
-{% block title %}Статистика{% endblock %}
+
 {% block content %}
-<div class="glass">
-    <h4>📊 СТАТИСТИКА</h4>
-    <p>Здесь можно вывести таблицы с агрегированными данными: количество заявок по дням, суммы выплат, топ пользователей и т.д.</p>
-    <div class="table-responsive">
-        <table>
-            <thead><tr><th>Дата</th><th>Заявок</th><th>Выплачено</th></tr></thead>
-            <tbody>
-                {% for stat in daily_stats %}
-                <tr><td>{{ stat.date }}</td><td>{{ stat.total_qr }}</td><td>${{ stat.total_earned }}</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+
+<div class="card">
+    <canvas id="statsChart"></canvas>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+new Chart(document.getElementById('statsChart'), {
+    type: 'bar',
+    data: {
+        labels: ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'],
+        datasets: [{
+            label: 'Доход',
+            data: [100,200,150,300,250,400,350],
+            backgroundColor: '#6366f1'
+        }]
+    }
+});
+</script>
+
 {% endblock %}

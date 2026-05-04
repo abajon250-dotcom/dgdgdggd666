@@ -1,41 +1,18 @@
 {% extends "base.html" %}
-{% block title %}Операторы{% endblock %}
+
 {% block content %}
-<div class="card p-3">
-    <h4>📡 Управление операторами (перетащите для сортировки)</h4>
-    <div id="operators-list" class="sortable-list">
-        {% for op in operators %}
-        <div class="sortable-item" data-name="{{ op.name }}">
-            <div class="d-flex justify-content-between align-items-center">
-                <div><i class="fas fa-grip-vertical"></i> <strong>{{ op.name }}</strong></div>
-                <div>
-                    <form method="post" action="/operators/price" class="d-inline">
-                        <input type="hidden" name="operator" value="{{ op.name }}">
-                        <input type="number" step="0.5" name="price_hold" value="{{ op.price_hold }}" class="form-control w-25 d-inline">
-                        <input type="number" step="0.5" name="price_bh" value="{{ op.price_bh }}" class="form-control w-25 d-inline">
-                        <button type="submit" class="btn btn-sm btn-primary">Обновить</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
+
+<div id="list" class="card">
+    <div class="card">Оператор 1</div>
+    <div class="card">Оператор 2</div>
+    <div class="card">Оператор 3</div>
 </div>
+
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 <script>
-    new Sortable(document.getElementById('operators-list'), {
-        animation: 150,
-        onEnd: function() {
-            let order = [];
-            document.querySelectorAll('#operators-list .sortable-item').forEach(el => {
-                order.push(el.dataset.name);
-            });
-            fetch('/operators/reorder', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: new URLSearchParams({order: order.join(',')})
-            }).then(() => location.reload());
-        }
-    });
+new Sortable(document.getElementById('list'), {
+    animation: 150
+});
 </script>
+
 {% endblock %}

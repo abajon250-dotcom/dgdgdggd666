@@ -3,7 +3,10 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 import uvicorn
+import csv
 import aiofiles
+import io
+from fastapi.responses import StreamingResponse
 from datetime import datetime
 from typing import List, Dict, Optional
 
@@ -18,7 +21,9 @@ from db import (
     get_achievements_list, get_ranks_list, grant_achievement, get_audit_log,
     get_pending_withdraw_requests, update_withdraw_request, reorder_operators,
     fetch, execute, accept_submission_now, reject_submission,
-    get_user_qr_last_30_days, set_user_role
+    get_user_qr_last_30_days, set_user_role, get_users_for_report,
+    get_submissions_for_report,
+    get_financial_report
 )
 from utils import calculate_rank
 from ws_manager import manager
@@ -216,14 +221,50 @@ async def stats_page(request: Request, user: dict = Depends(get_current_user)):
     return templates.TemplateResponse("stats.html", {"request": request})
 
 # ---------- ОТЧЁТЫ ----------
+import csv
+import io
+from fastapi.responses import StreamingResponse
+
+
 @app.get("/reports", response_class=HTMLResponse)
 async def reports_page(request: Request, user: dict = Depends(get_current_user)):
     return templates.TemplateResponse("reports.html", {"request": request})
 
-@app.get("/reports/generate")
-async def generate_report(report_type: str = Query("weekly"), user: dict = Depends(get_current_user)):
-    # Генерация CSV (заглушка)
-    return JSONResponse({"status": "generated"})
+
+@app.post("/reports/generate")
+async def generate_report(report_type: str = Form(...), user: dict = Depends(get_current_user)):
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    if report_type == "users":
+        data = await get_users_for_report()
+        writer.writerow(["user_id", "username", "total_earned", "earned_today", "registered_at"])
+        for row in data:
+            writer.writerow(
+                [row['user_id'], row['username'], row['total_earned'], row['earned_today'], row['registered_at']])
+        filename = "users_report.csv"
+
+    elif report_type == "submissions":
+        data = await get_submissions_for_report(days=30)
+        writer.writerow(["id", "user_id", "operator", "price", "status", "submitted_at", "earned_amount"])
+        for row in data:
+            writer.writerow(
+                [row['id'], row['user_id'], row['operator'], row['price'], row['status'], row['submitted_at'],
+                 row['earned_amount']])
+        filename = "submissions_report.csv"
+
+    elif report_type == "financial":
+        data = await get_financial_report()
+        writer.writerow(["date", "total_qr", "total_earned"])
+        for row in data:
+            writer.writerow([row['date'], row['total_qr'], row['total_earned']])
+        filename = "financial_report.csv"
+    else:
+        raise HTTPException(status_code=400, detail="Unknown report type")
+
+    response = StreamingResponse(iter([output.getvalue().encode("utf-8-sig")]), media_type="text/csv")
+    response.headers["Content-Disposition"] = f"attachment; filename={filename}"
+    return response
 
 # ---------- АЧИВКИ ----------
 @app.get("/achievements", response_class=HTMLResponse)
@@ -329,6 +370,7 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+
 
 # ---------- ЗАПУСК ----------
 if __name__ == "__main__":

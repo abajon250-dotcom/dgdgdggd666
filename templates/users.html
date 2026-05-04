@@ -1,57 +1,33 @@
 {% extends "base.html" %}
-{% block title %}Пользователи{% endblock %}
+
 {% block content %}
-<div class="glass table-container">
-    <div class="top-bar-inline">
-        <h4>👥 ПОЛЬЗОВАТЕЛИ</h4>
-        <button class="btn-primary" onclick="openModal('addUserModal')"><i class="fas fa-plus"></i> Добавить</button>
-    </div>
-    <div class="table-responsive">
-        <table>
-            <thead>
-                <tr><th>ID</th><th>Username</th><th>Заработано всего</th><th>За сегодня</th><th>Роль</th><th>Действия</th></tr>
-            </thead>
-            <tbody>
-                {% for user in users %}
-                <tr>
-                    <td>{{ user.user_id }}</td>
-                    <td>@{{ user.username or 'нет' }}</td>
-                    <td>${{ user.total_earned }}</td>
-                    <td>${{ user.earned_today }}</td>
-                    <td>
-                        <form method="post" action="/users/role" style="display:flex; gap:5px;">
-                            <input type="hidden" name="user_id" value="{{ user.user_id }}">
-                            <select name="role" class="role-select">
-                                <option value="user" {% if user.role == 'user' %}selected{% endif %}>Пользователь</option>
-                                <option value="worker" {% if user.role == 'worker' %}selected{% endif %}>Работник</option>
-                                <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Админ</option>
-                            </select>
-                            <button type="submit" class="action-btn accept"><i class="fas fa-save"></i></button>
-                        </form>
-                    </td>
-                    <td>
-                        <button class="action-btn" onclick="showUserInfo('{{ user.user_id }}')"><i class="fas fa-info-circle"></i></button>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+
+<div class="card">
+
+<input placeholder="Поиск..." oninput="search(this.value)">
+
+<table id="users">
+    <tr><th>ID</th><th>Имя</th><th>Действия</th></tr>
+    <tr><td>1</td><td>@user1</td><td><button onclick="approve()">✔</button><button onclick="reject()">✖</button></td></tr>
+    <tr><td>2</td><td>@user2</td><td><button onclick="approve()">✔</button><button onclick="reject()">✖</button></td></tr>
+</table>
+
 </div>
-<div id="addUserModal" class="modal">
-    <div class="modal-content">
-        <h4>Добавить пользователя</h4>
-        <form method="post" action="/users/add">
-            <input type="number" name="user_id" placeholder="Telegram ID" required>
-            <input type="text" name="username" placeholder="Username">
-            <select name="role">
-                <option value="user">Пользователь</option>
-                <option value="worker">Работник</option>
-                <option value="admin">Админ</option>
-            </select>
-            <button type="submit" class="btn-primary">Добавить</button>
-            <button type="button" class="btn-secondary" onclick="closeModal('addUserModal')">Отмена</button>
-        </form>
-    </div>
-</div>
+
+<script>
+function search(q){
+    document.querySelectorAll("#users tr").forEach(r=>{
+        r.style.display = r.innerText.includes(q) ? "" : "none";
+    });
+}
+
+function approve(){
+    showToast("Принято");
+}
+
+function reject(){
+    showToast("Отклонено");
+}
+</script>
+
 {% endblock %}

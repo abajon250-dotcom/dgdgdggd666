@@ -1,24 +1,22 @@
 {% extends "base.html" %}
-{% block title %}Тикеты{% endblock %}
+
 {% block content %}
-<h4>🎫 АКТИВНЫЕ ТИКЕТЫ</h4>
-<div class="tickets-grid">
-    {% for ticket in tickets %}
-    <div class="glass ticket-card">
-        <div class="ticket-header">
-            <span class="ticket-id">#{{ ticket.id }}</span>
-            <span class="ticket-category">{{ ticket.category }}</span>
-        </div>
-        <div class="ticket-message">{{ ticket.message[:100] }}...</div>
-        <div class="ticket-meta">от пользователя ID {{ ticket.user_id }}, {{ ticket.created_at.strftime('%d.%m.%Y %H:%M') }}</div>
-        <form method="post" action="/tickets/answer" class="ticket-answer-form">
-            <input type="hidden" name="ticket_id" value="{{ ticket.id }}">
-            <textarea name="response_text" rows="2" placeholder="Ответ..." required></textarea>
-            <button type="submit" class="btn-primary">Ответить и закрыть</button>
-        </form>
-    </div>
-    {% else %}
-    <div class="glass">Нет открытых тикетов.</div>
-    {% endfor %}
+
+<div class="card">
+    <input id="ticketText" placeholder="Напиши проблему...">
+    <button onclick="createTicket()">Отправить</button>
 </div>
+
+<script>
+async function createTicket(){
+    let text = document.getElementById('ticketText').value;
+    await fetch('/tickets',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({text})
+    });
+    showToast("Тикет создан");
+}
+</script>
+
 {% endblock %}

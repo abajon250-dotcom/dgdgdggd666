@@ -1,18 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Настройки{% endblock %}
+
 {% block content %}
-<h4>⚙️ КАСТОМНЫЕ ТЕКСТЫ</h4>
-<div class="texts-grid">
-    {% for text in texts %}
-    <div class="glass">
-        <h5>{{ text.key }}</h5>
-        <form method="post" action="/settings/text">
-            <input type="hidden" name="key" value="{{ text.key }}">
-            <textarea name="value" rows="4">{{ text.value }}</textarea>
-            <button type="submit" class="btn-primary">Сохранить</button>
-        </form>
-        <small>Обновлено: {{ text.updated_at.strftime('%d.%m.%Y %H:%M') if text.updated_at else 'никогда' }}</small>
-    </div>
-    {% endfor %}
+
+<div class="card">
+    <h3>API ключ</h3>
+    <input style="width:100%;padding:10px;background:#020617;color:white;border:none;border-radius:8px;" value="sk-xxxx">
+    <button class="btn" style="margin-top:15px;" onclick="showToast('Сгенерирован новый ключ')">Сгенерировать новый</button>
 </div>
+
 {% endblock %}

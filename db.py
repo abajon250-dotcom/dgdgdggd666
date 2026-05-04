@@ -1115,3 +1115,37 @@ async def update_withdraw_request(request_id: int, status: str, admin_id: int):
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute("UPDATE withdraw_requests SET status = $1, processed_at = NOW(), admin_id = $2 WHERE id = $3", status, admin_id, request_id)
+
+# ---------- ОТЧЁТЫ ----------
+async def get_users_for_report():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT user_id, username, total_earned, earned_today, registered_at FROM users ORDER BY user_id")
+        return [dict(row) for row in rows]
+
+async def get_submissions_for_report(days: int = 30):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT id, user_id, operator, price, status, submitted_at, earned_amount
+            FROM qr_submissions
+            WHERE submitted_at >= NOW() - $1::INTERVAL
+            ORDER BY submitted_at DESC
+        """, f"{days} days")
+        return [dict(row) for row in rows]
+
+async def get_financial_report():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT
+                DATE(submitted_at) as date,
+                COUNT(*) as total_qr,
+                SUM(earned_amount) as total_earned
+            FROM qr_submissions
+            WHERE status = 'accepted'
+            GROUP BY date
+            ORDER BY date DESC
+            LIMIT 30
+        """)
+        return [dict(row) for row in rows]

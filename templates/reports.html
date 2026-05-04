@@ -1,24 +1,19 @@
 {% extends "base.html" %}
-{% block title %}Отчёты{% endblock %}
+{% block page %}Отчёты{% endblock %}
+
 {% block content %}
-<div class="glass" style="max-width: 500px;">
-    <h4>📄 ГЕНЕРАЦИЯ ОТЧЁТА</h4>
-    <form method="get" action="/reports/generate">
-        <select name="report_type">
-            <option value="daily">Ежедневный</option>
-            <option value="weekly">Еженедельный</option>
-            <option value="monthly">Ежемесячный</option>
-            <option value="custom">Произвольный период</option>
-        </select>
-        <div id="customDateRange" style="display:none;">
-            <input type="date" name="start_date"> — <input type="date" name="end_date">
+<div class="card">
+    <h3>📊 Генерация отчётов</h3>
+    <form method="post" action="/reports/generate" target="_blank">
+        <div class="form-group mb-3">
+            <label>Тип отчёта</label>
+            <select name="report_type" class="form-control" style="background:#020617; color:white; border:1px solid #334155; border-radius:8px; padding:8px;">
+                <option value="users">Пользователи (CSV)</option>
+                <option value="submissions">Заявки за 30 дней (CSV)</option>
+                <option value="financial">Финансовая сводка (CSV)</option>
+            </select>
         </div>
-        <button type="submit" class="btn-primary">Сформировать CSV</button>
+        <button type="submit" class="btn">Скачать отчёт</button>
     </form>
 </div>
-<script>
-    document.querySelector('select[name="report_type"]').addEventListener('change', function() {
-        document.getElementById('customDateRange').style.display = this.value === 'custom' ? 'block' : 'none';
-    });
-</script>
 {% endblock %}

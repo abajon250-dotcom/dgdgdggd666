@@ -7,11 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Inter', sans-serif;
             background: linear-gradient(135deg, #0f111a 0%, #1a1f2e 100%);
@@ -48,27 +44,10 @@
             color: transparent;
             margin-bottom: 15px;
         }
-        h1 {
-            font-size: 28px;
-            font-weight: 600;
-            margin-bottom: 10px;
-            color: #fff;
-        }
-        .subtitle {
-            color: #858796;
-            margin-bottom: 30px;
-            font-size: 14px;
-        }
-        .input-group {
-            margin-bottom: 20px;
-            text-align: left;
-        }
-        .input-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-size: 13px;
-            color: #858796;
-        }
+        h1 { font-size: 28px; font-weight: 600; margin-bottom: 10px; color: #fff; }
+        .subtitle { color: #858796; margin-bottom: 30px; font-size: 14px; }
+        .input-group { margin-bottom: 20px; text-align: left; }
+        .input-group label { display: block; margin-bottom: 8px; font-size: 13px; color: #858796; }
         .input-group input {
             width: 100%;
             padding: 14px 16px;
@@ -123,19 +102,16 @@
         <div class="logo">⚡ eSIM Admin</div>
         <h1>Вход в панель</h1>
         <p class="subtitle">Введите ваш Telegram ID (администратора)</p>
-
         {% if error %}
         <div class="error">{{ error }}</div>
         {% endif %}
-
         <form method="post" action="/auth">
             <div class="input-group">
                 <label><i class="fas fa-id-card"></i> Telegram ID</label>
-                <input type="number" name="user_id" placeholder="Например, 123456789" required autofocus>
+                <input type="number" name="user_id" placeholder="123456789" required autofocus>
             </div>
             <button type="submit"><i class="fas fa-sign-in-alt"></i> Войти</button>
         </form>
-
         <div class="footer-note">
             <i class="fas fa-shield-alt"></i> Только для администраторов
         </div>

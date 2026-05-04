@@ -184,23 +184,21 @@ async def get_current_admin(request: Request):
 
 # ---------- Маршруты ----------
 @app.get("/", response_class=HTMLResponse)
-async def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request, "bot_username": "grucvbdugbot"})
+async def login_page(request: Request, error: str = None):
+    return templates.TemplateResponse("login.html", {"request": request, "error": error})
 
 @app.post("/auth")
 async def auth(request: Request):
     form = await request.form()
-    init_data = form.get("init_data")
-    if not init_data or not verify_telegram_auth(init_data):
-        raise HTTPException(status_code=403, detail="Invalid auth")
-    data = parse_qs(init_data)
-    user = json.loads(data['user'][0]) if 'user' in data else {}
-    user_id = user.get('id', 0)
-    if user_id not in ADMIN_IDS:
-        raise HTTPException(status_code=403, detail="Not admin")
-    resp = RedirectResponse(url="/dashboard", status_code=302)
-    resp.set_cookie(key="telegram_id", value=str(user_id), httponly=True)
-    return resp
+    user_id_str = form.get("user_id")
+    if not user_id_str or not user_id_str.isdigit():
+        return templates.TemplateResponse("login.html", {"request": request, "error": "ID должен быть числом"})
+    user_id = int(user_id_str)
+    if user_id in ADMIN_IDS:
+        resp = RedirectResponse(url="/dashboard", status_code=302)
+        resp.set_cookie(key="telegram_id", value=str(user_id), httponly=True)
+        return resp
+    return templates.TemplateResponse("login.html", {"request": request, "error": "Неверный ID. Доступ запрещён."})
 
 @app.get("/logout")
 async def logout():

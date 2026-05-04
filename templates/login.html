@@ -2,68 +2,68 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Вход – eSIM PRO</title>
+    <title>Вход – eSIM Admin</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * { margin:0; padding:0; box-sizing:border-box; }
         body {
-            font-family: 'Inter', sans-serif;
+            font-family:'Inter',sans-serif;
             background: radial-gradient(circle at 30% 10%, #0b0f1a, #020617);
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            height:100vh;
+            display:flex;
+            align-items:center;
+            justify-content:center;
         }
         .glass-card {
-            background: rgba(17, 24, 39, 0.7);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(124,58,237,0.4);
-            border-radius: 32px;
-            padding: 40px;
-            width: 360px;
-            box-shadow: 0 25px 40px rgba(0,0,0,0.4);
+            background:rgba(17,24,39,0.7);
+            backdrop-filter:blur(12px);
+            border:1px solid rgba(124,58,237,0.4);
+            border-radius:32px;
+            padding:40px;
+            width:360px;
+            box-shadow:0 25px 40px rgba(0,0,0,0.4);
         }
         h2 {
-            background: linear-gradient(45deg, #a855f7, #4f46e5);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-            text-align: center;
-            margin-bottom: 30px;
+            background:linear-gradient(45deg,#a855f7,#4f46e5);
+            -webkit-background-clip:text;
+            background-clip:text;
+            color:transparent;
+            text-align:center;
+            margin-bottom:30px;
         }
         input {
-            width: 100%;
-            padding: 14px;
-            margin: 10px 0;
-            background: #0f172a;
-            border: 1px solid #334155;
-            border-radius: 24px;
-            color: white;
-            font-size: 14px;
+            width:100%;
+            padding:14px;
+            margin:10px 0;
+            background:#0f172a;
+            border:1px solid #334155;
+            border-radius:24px;
+            color:white;
+            font-size:14px;
         }
         button {
-            width: 100%;
-            background: linear-gradient(90deg, #7c3aed, #6366f1);
-            border: none;
-            padding: 12px;
-            border-radius: 30px;
-            color: white;
-            font-weight: 600;
-            margin-top: 10px;
-            cursor: pointer;
+            width:100%;
+            background:linear-gradient(90deg,#7c3aed,#6366f1);
+            border:none;
+            padding:12px;
+            border-radius:30px;
+            color:white;
+            font-weight:600;
+            margin-top:10px;
+            cursor:pointer;
         }
-        .error { color: #f87171; text-align: center; margin-top: 15px; }
+        .error { color:#f87171; text-align:center; margin-top:15px; }
     </style>
 </head>
 <body>
 <div class="glass-card">
-    <h2>⚡ eSIM PRO Admin</h2>
+    <h2>⚡ eSIM Admin</h2>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
     <form method="post" action="/auth">
         <input type="text" name="user_id" placeholder="Ваш Telegram ID" required>
         <button type="submit">Войти</button>
     </form>
-    <p style="text-align: center; font-size: 12px; margin-top: 20px; color:#64748b;">Только для администраторов</p>
+    <p style="text-align:center; font-size:12px; margin-top:20px; color:#64748b;">Только для администраторов</p>
 </div>
 </body>
 </html>

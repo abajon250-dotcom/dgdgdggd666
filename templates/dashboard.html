@@ -2,53 +2,80 @@
 {% block title %}Дашборд{% endblock %}
 {% block content %}
 <div class="stat-grid">
-    <div class="stat-card card">
-        <div class="stat-icon"><i class="fas fa-user"></i></div>
-        <div class="stat-info">
-            <p>ПОЛЬЗОВАТЕЛЕЙ</p>
-            <h3>{{ stats.total_users }}</h3>
+    <div class="card"><div class="stat-icon"><i class="fas fa-user"></i></div><div class="stat-info"><p>ПОЛЬЗОВАТЕЛЕЙ</p><h3>{{ stats.total_users }}</h3></div></div>
+    <div class="card"><div class="stat-icon"><i class="fas fa-file-alt"></i></div><div class="stat-info"><p>ЗАЯВОК СЕГОДНЯ</p><h3>{{ stats.submissions_today }}</h3></div></div>
+    <div class="card"><div class="stat-icon"><i class="fas fa-dollar-sign"></i></div><div class="stat-info"><p>ВЫПЛАЧЕНО СЕГОДНЯ</p><h3>${{ stats.earned_today }}</h3></div></div>
+    <div class="card"><div class="stat-icon"><i class="fas fa-clock"></i></div><div class="stat-info"><p>ЗАЯВОК НА ВЫВОД</p><h3>{{ stats.pending_withdrawals }}</h3></div></div>
+</div>
+
+<div class="charts-row">
+    <div class="card chart-card">
+        <h4>📈 ДИНАМИКА ЗАЯВОК</h4>
+        <div class="period-buttons">
+            <button class="period-btn" data-period="today">Сегодня</button>
+            <button class="period-btn active" data-period="7d">7 дней</button>
+            <button class="period-btn" data-period="30d">30 дней</button>
         </div>
+        <canvas id="submissionsChart" height="200"></canvas>
     </div>
-    <div class="stat-card card">
-        <div class="stat-icon"><i class="fas fa-file-alt"></i></div>
-        <div class="stat-info">
-            <p>ЗАЯВОК СЕГОДНЯ</p>
-            <h3>{{ stats.submissions_today }}</h3>
-        </div>
-    </div>
-    <div class="stat-card card">
-        <div class="stat-icon"><i class="fas fa-dollar-sign"></i></div>
-        <div class="stat-info">
-            <p>ВЫПЛАЧЕНО СЕГОДНЯ</p>
-            <h3>${{ stats.earned_today }}</h3>
-        </div>
-    </div>
-    <div class="stat-card card">
-        <div class="stat-icon"><i class="fas fa-clock"></i></div>
-        <div class="stat-info">
-            <p>АКТИВНЫХ ТИКЕТОВ</p>
-            <h3>{{ stats.active_tickets }}</h3>
+    <div class="card chart-card">
+        <h4>🥧 СООТНОШЕНИЕ ЗАЯВОК</h4>
+        <canvas id="statusChart" height="180"></canvas>
+        <div style="text-align:center; margin-top:15px;">
+            <span style="color:#10b981;">Принятые: {{ ratio.accepted }} ({{ ratio.accepted_pct }}%)</span> |
+            <span style="color:#ef4444;">Отклонённые: {{ ratio.rejected }} ({{ ratio.rejected_pct }}%)</span> |
+            <span style="color:#f59e0b;">В обработке: {{ ratio.pending }} ({{ ratio.pending_pct }}%)</span>
         </div>
     </div>
 </div>
 
-<div class="card p-3" style="margin-bottom: 20px;">
-    <h4>📈 Динамика заявок</h4>
-    <canvas id="submissionsChart" height="100"></canvas>
+<div class="two-columns">
+    <div class="card">
+        <h4>🔔 УВЕДОМЛЕНИЯ</h4>
+        <div class="notifications-list">
+            {% for n in notifications %}
+            <div class="notification-item"><span>{{ n.text }}</span><span>{{ n.time }}</span></div>
+            {% endfor %}
+        </div>
+        <button class="btn-sm" style="margin-top:15px;">Показать все</button>
+    </div>
+    <div class="card">
+        <h4>⚡ БЫСТРЫЕ ДЕЙСТВИЯ</h4>
+        <div class="actions-grid">
+            <button onclick="location.href='/broadcast'"><i class="fas fa-bullhorn"></i> Новая рассылка</button>
+            <button onclick="location.href='/reports'"><i class="fas fa-chart-bar"></i> Создать отчёт</button>
+            <button onclick="location.href='/operators'"><i class="fas fa-plus-circle"></i> Добавить оператора</button>
+            <button onclick="location.href='/settings'"><i class="fas fa-sliders-h"></i> Настройки</button>
+            <button onclick="location.href='/users'"><i class="fas fa-user-plus"></i> Добавить пользователя</button>
+            <button onclick="location.href='/export'"><i class="fas fa-download"></i> Экспорт данных</button>
+        </div>
+    </div>
 </div>
 
-<div class="card p-3">
-    <h4>📋 Последние заявки</h4>
+<div class="card">
+    <h4>📋 ПОСЛЕДНИЕ ЗАЯВКИ</h4>
     <div class="table-responsive">
         <table>
-            <thead><tr><th>ID</th><th>Пользователь</th><th>Сумма</th><th>Статус</th></tr></thead>
+            <thead><tr><th>ID</th><th>ПОЛЬЗОВАТЕЛЬ</th><th>НОМЕР</th><th>ОПЕРАТОР</th><th>СУММА</th><th>СТАТУС</th><th>ДЕЙСТВИЯ</th></tr></thead>
             <tbody>
                 {% for sub in recent_submissions %}
                 <tr>
-                    <td>#{{ sub.id }}</td>
-                    <td>@user{{ sub.user_id }}</td>
-                    <td>${{ sub.price }}</td>
-                    <td><span class="status {% if sub.status == 'accepted' %}accepted{% elif sub.status == 'rejected' %}rejected{% else %}new{% endif %}">{{ sub.status }}</span></td>
+                    <td>#{{ sub.id }}</td><td>@user{{ sub.user_id }}</td><td>{{ sub.phone }}</td><td>{{ sub.operator }}</td><td>${{ sub.price }}</td>
+                    <td><span class="status {{ sub.status }}">{{ sub.status }}</span></td>
+                    <td>
+                        {% if sub.status == 'pending' %}
+                        <form method="post" action="/submissions/accept" style="display:inline;">
+                            <input type="hidden" name="sub_id" value="{{ sub.id }}">
+                            <button class="btn-sm" style="background:#10b981;" title="Принять">✅</button>
+                        </form>
+                        <form method="post" action="/submissions/reject" style="display:inline;">
+                            <input type="hidden" name="sub_id" value="{{ sub.id }}">
+                            <button class="btn-sm" style="background:#ef4444;" title="Отклонить">❌</button>
+                        </form>
+                        {% else %}
+                        —
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -57,25 +84,32 @@
 </div>
 
 <script>
-    fetch('/api/advanced-stats')
-        .then(r => r.json())
-        .then(data => {
-            const hours = data.submissions_by_hour.map(h => h.hour);
-            const counts = data.submissions_by_hour.map(h => h.count);
-            new Chart(document.getElementById('submissionsChart'), {
-                type: 'line',
-                data: {
-                    labels: hours,
-                    datasets: [{
-                        label: 'Заявки по часам',
-                        data: counts,
-                        borderColor: '#a855f7',
-                        tension: 0.3,
-                        fill: true,
-                        backgroundColor: 'rgba(168,85,247,0.1)'
-                    }]
-                }
+    let chart;
+    const btns = document.querySelectorAll('.period-btn');
+    function loadChart(period) {
+        fetch(`/api/analytics/daily?period=${period}`)
+            .then(r => r.json())
+            .then(data => {
+                if (chart) chart.destroy();
+                chart = new Chart(document.getElementById('submissionsChart'), {
+                    type: 'line',
+                    data: { labels: data.labels, datasets: [{ label: 'Заявки', data: data.submissions, borderColor: '#a855f7', backgroundColor: 'rgba(168,85,247,0.1)', tension: 0.3, fill: true }] },
+                    options: { responsive: true, plugins: { legend: { labels: { color: '#fff' } } } }
+                });
             });
+    }
+    btns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            btns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            loadChart(btn.dataset.period);
         });
+    });
+    loadChart('7d');
+    new Chart(document.getElementById('statusChart'), {
+        type: 'doughnut',
+        data: { labels: ['Принятые', 'Отклонённые', 'В обработке'], datasets: [{ data: [{{ ratio.accepted }}, {{ ratio.rejected }}, {{ ratio.pending }}], backgroundColor: ['#10b981', '#ef4444', '#f59e0b'], borderWidth: 0 }] },
+        options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#fff' } } } }
+    });
 </script>
 {% endblock %}

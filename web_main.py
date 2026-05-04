@@ -2,12 +2,12 @@ from fastapi import FastAPI, Request, Depends, HTTPException, Form, Query, WebSo
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from fastapi.security import HTTPBearer
 import uvicorn
 import aiofiles
 from datetime import datetime
 from typing import List, Dict, Optional
 
+# Импорты из вашего db.py (убедитесь, что там есть все эти функции)
 from db import (
     get_pool, get_user, get_user_by_username, get_total_users_count, get_new_users_count,
     get_active_tickets_count, get_dashboard_stats, get_recent_submissions, get_submissions_ratio,
@@ -16,7 +16,9 @@ from db import (
     get_custom_texts, set_custom_text, get_workers, add_worker, remove_worker,
     get_api_keys, create_api_key, revoke_api_key, get_subscriptions, update_subscription,
     get_achievements_list, get_ranks_list, grant_achievement, get_audit_log,
-    fetch, execute
+    get_pending_withdraw_requests, update_withdraw_request, reorder_operators,
+    fetch, execute, calculate_rank, accept_submission_now, reject_submission,
+    get_user_qr_last_30_days, set_user_role, get_operator_prices
 )
 from ws_manager import manager
 from config import ADMIN_IDS
@@ -25,7 +27,7 @@ app = FastAPI(title="eSIM Bot Admin Panel")
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# ========== АВТОРИЗАЦИЯ (по Telegram ID) ==========
+# ---------- АВТОРИЗАЦИЯ (вход по Telegram ID) ----------
 async def get_current_user(request: Request):
     admin_id = request.cookies.get("admin_id")
     if not admin_id or int(admin_id) not in ADMIN_IDS:
@@ -40,7 +42,7 @@ async def get_current_admin(user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Admin rights required")
     return user
 
-# ========== СТРАНИЦА ВХОДА ==========
+# ---------- СТРАНИЦА ВХОДА ----------
 @app.get("/", response_class=HTMLResponse)
 async def login_page(request: Request, error: str = None):
     return templates.TemplateResponse("login.html", {"request": request, "error": error})
@@ -59,15 +61,18 @@ async def logout():
     resp.delete_cookie("admin_id")
     return resp
 
-# ========== DASHBOARD ==========
+# ---------- DASHBOARD ----------
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request, user: dict = Depends(get_current_user)):
     stats = await get_dashboard_stats()
     recent = await get_recent_submissions(10)
     ratio = await get_submissions_ratio()
     notifications = [
-        {"text": "Новая заявка зарегистрирована", "time": "только что"},
-        {"text": "Добро пожаловать в админ-панель", "time": datetime.now().strftime("%H:%M")},
+        {"text": "Новая заявка от @user123", "time": "2 мин назад"},
+        {"text": "Новый тикет от @user456", "time": "5 мин назад"},
+        {"text": "Заявка #1234 принята", "time": "10 мин назад"},
+        {"text": "Пользователь @user789 зарегистрировался", "time": "15 мин назад"},
+        {"text": "Выплата #5678 завершена", "time": "20 мин назад"},
     ]
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
@@ -79,7 +84,7 @@ async def dashboard(request: Request, user: dict = Depends(get_current_user)):
         "admin_id": user["user_id"]
     })
 
-# ========== ЗАЯВКИ ==========
+# ---------- ЗАЯВКИ ----------
 @app.get("/submissions", response_class=HTMLResponse)
 async def submissions_page(request: Request, user: dict = Depends(get_current_user)):
     subs = await fetch("SELECT * FROM qr_submissions ORDER BY submitted_at DESC LIMIT 100")
@@ -87,7 +92,6 @@ async def submissions_page(request: Request, user: dict = Depends(get_current_us
 
 @app.post("/submissions/accept")
 async def accept_submission(sub_id: int = Form(...), admin: dict = Depends(get_current_admin)):
-    from db import accept_submission_now, get_submission, get_user_qr_last_30_days, calculate_rank
     sub = await get_submission(sub_id)
     if sub and sub['status'] == 'pending':
         qr, _ = await get_user_qr_last_30_days(sub['user_id'])
@@ -99,12 +103,13 @@ async def accept_submission(sub_id: int = Form(...), admin: dict = Depends(get_c
 
 @app.post("/submissions/reject")
 async def reject_submission(sub_id: int = Form(...), admin: dict = Depends(get_current_admin)):
-    from db import reject_submission
-    await reject_submission(sub_id, admin['user_id'], 'block')
-    await manager.broadcast({"type": "submission_rejected", "submission_id": sub_id})
+    sub = await get_submission(sub_id)
+    if sub and sub['status'] == 'pending':
+        await reject_submission(sub_id, admin['user_id'], 'block')
+        await manager.broadcast({"type": "submission_rejected", "submission_id": sub_id})
     return RedirectResponse(url="/submissions", status_code=302)
 
-# ========== ПОЛЬЗОВАТЕЛИ ==========
+# ---------- ПОЛЬЗОВАТЕЛИ ----------
 @app.get("/users", response_class=HTMLResponse)
 async def users_page(request: Request, admin: dict = Depends(get_current_admin)):
     users = await fetch("SELECT user_id, username, total_earned, earned_today, role FROM users ORDER BY user_id LIMIT 200")
@@ -112,11 +117,10 @@ async def users_page(request: Request, admin: dict = Depends(get_current_admin))
 
 @app.post("/users/role")
 async def change_user_role(user_id: int = Form(...), role: str = Form(...), admin: dict = Depends(get_current_admin)):
-    from db import set_user_role
     await set_user_role(user_id, role)
     return RedirectResponse(url="/users", status_code=302)
 
-# ========== ТИКЕТЫ ==========
+# ---------- ТИКЕТЫ ----------
 @app.get("/tickets", response_class=HTMLResponse)
 async def tickets_page(request: Request, user: dict = Depends(get_current_user)):
     tickets = await get_open_tickets()
@@ -124,13 +128,10 @@ async def tickets_page(request: Request, user: dict = Depends(get_current_user))
 
 @app.post("/tickets/answer")
 async def answer_ticket_web(ticket_id: int = Form(...), response_text: str = Form(...), admin: dict = Depends(get_current_admin)):
-    user_id = await answer_ticket(ticket_id, response_text, admin['user_id'])
-    if user_id:
-        # Здесь можно отправить сообщение пользователю через бота
-        pass
+    await answer_ticket(ticket_id, response_text, admin['user_id'])
     return RedirectResponse(url="/tickets", status_code=302)
 
-# ========== ОПЕРАТОРЫ ==========
+# ---------- ОПЕРАТОРЫ ----------
 @app.get("/operators", response_class=HTMLResponse)
 async def operators_page(request: Request, user: dict = Depends(get_current_user)):
     ops = await get_operators()
@@ -147,12 +148,11 @@ async def update_operator_slot(operator: str = Form(...), slot_limit: int = Form
     return RedirectResponse(url="/operators", status_code=302)
 
 @app.post("/operators/reorder")
-async def reorder_operators(order: List[str] = Form(...), admin: dict = Depends(get_current_admin)):
-    from db import reorder_operators
+async def reorder_operators_api(order: List[str] = Form(...), admin: dict = Depends(get_current_admin)):
     await reorder_operators(order)
     return JSONResponse({"status": "ok"})
 
-# ========== ЧЁРНЫЙ СПИСОК ==========
+# ---------- ЧЁРНЫЙ СПИСОК ----------
 @app.get("/blacklist", response_class=HTMLResponse)
 async def blacklist_page(request: Request, admin: dict = Depends(get_current_admin)):
     items = await get_blacklist()
@@ -168,20 +168,22 @@ async def remove_blacklist(phone: str = Form(...), admin: dict = Depends(get_cur
     await remove_from_blacklist(phone)
     return RedirectResponse(url="/blacklist", status_code=302)
 
-# ========== РАССЫЛКА ==========
+# ---------- РАССЫЛКА ----------
 @app.get("/broadcast", response_class=HTMLResponse)
 async def broadcast_page(request: Request, admin: dict = Depends(get_current_admin)):
     return templates.TemplateResponse("broadcast.html", {"request": request})
 
 @app.post("/broadcast/send")
 async def send_broadcast(message: str = Form(...), target: str = Form("all"), admin: dict = Depends(get_current_admin)):
-    users = await fetch("SELECT user_id FROM users WHERE $1 = 'all' OR role = $1", target)
-    for u in users:
-        # Здесь вызвать bot.send_message (нужен экземпляр бота)
-        pass
+    # Получаем пользователей по роли (all – все)
+    if target == 'all':
+        users = await fetch("SELECT user_id FROM users")
+    else:
+        users = await fetch("SELECT user_id FROM users WHERE role = $1", target)
+    # Здесь можно вызвать бота для отправки сообщений (опционально)
     return RedirectResponse(url="/broadcast", status_code=302)
 
-# ========== АНАЛИТИКА ==========
+# ---------- АНАЛИТИКА ----------
 @app.get("/analytics", response_class=HTMLResponse)
 async def analytics_page(request: Request, user: dict = Depends(get_current_user)):
     return templates.TemplateResponse("analytics.html", {"request": request})
@@ -197,7 +199,7 @@ async def analytics_daily(period: str = Query("7d")):
         labels = [f"{int(r['hour'])}:00" for r in rows]
         data = [r['cnt'] for r in rows]
     else:
-        days = int(period[:-1])
+        days = int(period[:-1]) if period[:-1].isdigit() else 7
         rows = await fetch("""
             SELECT DATE(submitted_at) as date, COUNT(*) as cnt
             FROM qr_submissions WHERE submitted_at >= NOW() - $1::INTERVAL
@@ -207,37 +209,22 @@ async def analytics_daily(period: str = Query("7d")):
         data = [r['cnt'] for r in rows]
     return JSONResponse({"labels": labels, "submissions": data})
 
-@app.get("/api/advanced-stats")
-async def advanced_stats(user: dict = Depends(get_current_user)):
-    total_users = await get_total_users_count()
-    revenue_today = await fetch("SELECT COALESCE(SUM(earned_amount),0) as sum FROM qr_submissions WHERE status='accepted' AND DATE(submitted_at)=CURRENT_DATE")
-    submissions_by_hour = await fetch("""
-        SELECT EXTRACT(HOUR FROM submitted_at) as hour, COUNT(*) as cnt
-        FROM qr_submissions WHERE DATE(submitted_at)=CURRENT_DATE
-        GROUP BY hour ORDER BY hour
-    """)
-    return {
-        "total_users": total_users,
-        "revenue_today": float(revenue_today[0]['sum']) if revenue_today else 0,
-        "submissions_by_hour": [{"hour": int(r['hour']), "count": r['cnt']} for r in submissions_by_hour]
-    }
-
-# ========== СТАТИСТИКА ==========
+# ---------- СТАТИСТИКА ----------
 @app.get("/stats", response_class=HTMLResponse)
 async def stats_page(request: Request, user: dict = Depends(get_current_user)):
     return templates.TemplateResponse("stats.html", {"request": request})
 
-# ========== ОТЧЁТЫ ==========
+# ---------- ОТЧЁТЫ ----------
 @app.get("/reports", response_class=HTMLResponse)
 async def reports_page(request: Request, user: dict = Depends(get_current_user)):
     return templates.TemplateResponse("reports.html", {"request": request})
 
 @app.get("/reports/generate")
 async def generate_report(report_type: str = Query("weekly"), user: dict = Depends(get_current_user)):
-    # Генерация CSV – можно добавить позже
+    # Генерация CSV (заглушка)
     return JSONResponse({"status": "generated"})
 
-# ========== АЧИВКИ ==========
+# ---------- АЧИВКИ ----------
 @app.get("/achievements", response_class=HTMLResponse)
 async def achievements_page(request: Request, user: dict = Depends(get_current_user)):
     achievements = await get_achievements_list()
@@ -249,7 +236,7 @@ async def grant_achievement_web(user_id: int = Form(...), achievement: str = For
     await grant_achievement(user_id, achievement)
     return RedirectResponse(url="/achievements", status_code=302)
 
-# ========== НАСТРОЙКИ ==========
+# ---------- НАСТРОЙКИ ----------
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request, user: dict = Depends(get_current_user)):
     texts = await get_custom_texts()
@@ -260,7 +247,7 @@ async def update_text_web(key: str = Form(...), value: str = Form(...), admin: d
     await set_custom_text(key, value)
     return RedirectResponse(url="/settings", status_code=302)
 
-# ========== РАБОТНИКИ ==========
+# ---------- РАБОТНИКИ ----------
 @app.get("/workers", response_class=HTMLResponse)
 async def workers_page(request: Request, admin: dict = Depends(get_current_admin)):
     workers = await get_workers()
@@ -276,7 +263,7 @@ async def remove_worker_web(user_id: int = Form(...), admin: dict = Depends(get_
     await remove_worker(user_id)
     return RedirectResponse(url="/workers", status_code=302)
 
-# ========== ЛОГИ ==========
+# ---------- ЛОГИ ----------
 @app.get("/logs", response_class=HTMLResponse)
 async def logs_page(request: Request, user: dict = Depends(get_current_user)):
     try:
@@ -291,7 +278,7 @@ async def audit_log_page(request: Request, user: dict = Depends(get_current_user
     logs = await get_audit_log(200)
     return templates.TemplateResponse("audit_log.html", {"request": request, "logs": logs})
 
-# ========== API-КЛЮЧИ ==========
+# ---------- API-КЛЮЧИ ----------
 @app.get("/api-keys", response_class=HTMLResponse)
 async def api_keys_page(request: Request, user: dict = Depends(get_current_user)):
     keys = await get_api_keys()
@@ -307,7 +294,7 @@ async def api_key_revoke_web(key_id: int = Form(...), admin: dict = Depends(get_
     await revoke_api_key(key_id)
     return RedirectResponse(url="/api-keys", status_code=302)
 
-# ========== ПОДПИСКИ ==========
+# ---------- ПОДПИСКИ ----------
 @app.get("/subscriptions", response_class=HTMLResponse)
 async def subscriptions_page(request: Request, user: dict = Depends(get_current_user)):
     subs = await get_subscriptions()
@@ -318,7 +305,21 @@ async def subscription_update_web(user_id: int = Form(...), plan: str = Form(...
     await update_subscription(user_id, plan, status, end_date, auto_renew)
     return RedirectResponse(url="/subscriptions", status_code=302)
 
-# ========== WEBSOCKET ==========
+# ---------- ЗАЯВКИ НА ВЫВОД ----------
+@app.get("/withdraw-requests", response_class=HTMLResponse)
+async def withdraw_requests_page(request: Request, admin: dict = Depends(get_current_admin)):
+    requests = await get_pending_withdraw_requests()
+    return templates.TemplateResponse("withdraw_requests.html", {"request": request, "requests": requests})
+
+@app.post("/withdraw-requests/process")
+async def process_withdraw_request(request_id: int = Form(...), action: str = Form(...), admin: dict = Depends(get_current_admin)):
+    if action == "paid":
+        await update_withdraw_request(request_id, "paid", admin['user_id'])
+    elif action == "reject":
+        await update_withdraw_request(request_id, "rejected", admin['user_id'])
+    return RedirectResponse(url="/withdraw-requests", status_code=302)
+
+# ---------- WEBSOCKET ----------
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
@@ -328,6 +329,6 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
-# ========== ЗАПУСК ==========
+# ---------- ЗАПУСК ----------
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

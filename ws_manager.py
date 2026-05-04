@@ -2,17 +2,18 @@ class ConnectionManager:
     def __init__(self):
         self.active_connections = []
 
-    async def connect(self, websocket, user_id=None):
+    async def connect(self, websocket):
         await websocket.accept()
-        self.active_connections.append({"ws": websocket, "user_id": user_id})
+        self.active_connections.append(websocket)
 
     def disconnect(self, websocket):
-        self.active_connections = [c for c in self.active_connections if c["ws"] != websocket]
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
 
     async def broadcast(self, message: dict):
-        for conn in self.active_connections:
+        for connection in self.active_connections:
             try:
-                await conn["ws"].send_json(message)
+                await connection.send_json(message)
             except:
                 pass
 

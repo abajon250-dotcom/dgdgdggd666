@@ -958,3 +958,125 @@ async def create_withdraw_request(user_id: int, amount: float) -> int:
             RETURNING id
         """, user_id, amount)
         return row['id']
+
+# ============================================================
+# Заявки на вывод (недостающие)
+# ============================================================
+async def get_pending_withdraw_requests() -> List[Dict]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT * FROM withdraw_requests WHERE status = 'pending' ORDER BY requested_at ASC")
+        return [dict(row) for row in rows]
+
+async def update_withdraw_request(request_id: int, status: str, admin_id: int):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            UPDATE withdraw_requests SET status = $1, processed_at = NOW(), admin_id = $2 WHERE id = $3
+        """, status, admin_id, request_id)
+
+# ============================================================
+# Подписки
+# ============================================================
+async def get_subscriptions() -> List[Dict]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT u.user_id, u.username, s.plan, s.status, s.end_date, s.auto_renew
+            FROM users u
+            LEFT JOIN subscriptions s ON u.user_id = s.user_id
+            ORDER BY u.user_id
+        """)
+        return [dict(row) for row in rows]
+
+# ============================================================
+# Операторы (сортировка)
+# ============================================================
+async def reorder_operators(order: List[str]):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        for idx, name in enumerate(order):
+            await conn.execute("UPDATE operators SET sort_order = $1 WHERE name = $2", idx, name)
+
+# ============================================================
+# Рассылка (получение пользователей по ролям)
+# ============================================================
+async def get_users_by_role(role: str = None) -> List[int]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        if role == "all":
+            rows = await conn.fetch("SELECT user_id FROM users")
+        else:
+            rows = await conn.fetch("SELECT user_id FROM users WHERE role = $1", role)
+        return [r['user_id'] for r in rows]
+
+
+async def get_user_by_id(user_id: int):
+    """Алиас для get_user (для совместимости)"""
+    return await get_user(user_id)
+
+async def get_user_by_username(username: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT * FROM users WHERE username = $1", username)
+        return dict(row) if row else None
+
+async def get_total_users_count() -> int:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetchval("SELECT COUNT(*) FROM users") or 0
+
+async def get_new_users_count(days: int = 1) -> int:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetchval("SELECT COUNT(*) FROM users WHERE registered_at >= NOW() - make_interval(days => $1)", days) or 0
+
+async def get_active_tickets_count() -> int:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetchval("SELECT COUNT(*) FROM tickets WHERE status = 'open'") or 0
+
+async def get_pending_withdraw_requests():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT * FROM withdraw_requests WHERE status = 'pending' ORDER BY requested_at ASC")
+        return [dict(row) for row in rows]
+
+async def update_withdraw_request(request_id: int, status: str, admin_id: int):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("UPDATE withdraw_requests SET status = $1, processed_at = NOW(), admin_id = $2 WHERE id = $3", status, admin_id, request_id)
+
+async def get_subscriptions():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT u.user_id, u.username, s.plan, s.status, s.end_date, s.auto_renew
+            FROM users u LEFT JOIN subscriptions s ON u.user_id = s.user_id
+            ORDER BY u.user_id
+        """)
+        return [dict(row) for row in rows]
+
+async def create_withdraw_request(user_id: int, amount: float) -> int:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("INSERT INTO withdraw_requests (user_id, amount, requested_at, status) VALUES ($1, $2, NOW(), 'pending') RETURNING id", user_id, amount)
+        return row['id'] if row else 0
+
+async def reorder_operators(order: list):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        for idx, name in enumerate(order):
+            await conn.execute("UPDATE operators SET sort_order = $1 WHERE name = $2", idx, name)
+
+# Убедитесь, что fetch и execute уже определены (если нет – добавьте)
+async def fetch(query: str, *args):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(query, *args)
+        return [dict(row) for row in rows]
+
+async def execute(query: str, *args):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(query, *args)

@@ -1080,3 +1080,38 @@ async def execute(query: str, *args):
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute(query, *args)
+
+# ---------- ОПЕРАТОРЫ (сортировка, получение) ----------
+async def get_operators():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT * FROM operators ORDER BY sort_order ASC, name ASC")
+        return [dict(row) for row in rows]
+
+async def update_operator_prices(operator: str, price_hold: float, price_bh: float):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("UPDATE operators SET price_hold = $1, price_bh = $2 WHERE name = $3", price_hold, price_bh, operator)
+
+async def update_operator_slot_limit(operator: str, limit: int):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("UPDATE operators SET slot_limit = $1 WHERE name = $2", limit, operator)
+
+async def reorder_operators(order: list):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        for idx, name in enumerate(order):
+            await conn.execute("UPDATE operators SET sort_order = $1 WHERE name = $2", idx, name)
+
+# ---------- ЗАЯВКИ НА ВЫВОД ----------
+async def get_pending_withdraw_requests():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT * FROM withdraw_requests WHERE status = 'pending' ORDER BY requested_at ASC")
+        return [dict(row) for row in rows]
+
+async def update_withdraw_request(request_id: int, status: str, admin_id: int):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("UPDATE withdraw_requests SET status = $1, processed_at = NOW(), admin_id = $2 WHERE id = $3", status, admin_id, request_id)

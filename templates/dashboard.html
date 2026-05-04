@@ -60,7 +60,7 @@
             <tbody>
                 {% for sub in recent_submissions %}
                 <tr>
-                    <td>#{{ sub.id }}</td><td>@user{{ sub.user_id }}</td><td>{{ sub.phone }}</td><td>{{ sub.operator }}</td><td>${{ sub.price }}</td>
+                    <td>#{{ sub.id }}</td><td>@user{{ sub.user_id }}</td><td>{{ sub.phone }}</td><td>{{ sub.operator }}</td><td>${{ sub.price }}
                     <td><span class="status {{ sub.status }}">{{ sub.status }}</span></td>
                     <td>
                         {% if sub.status == 'pending' %}
@@ -98,13 +98,11 @@
                 });
             });
     }
-    btns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            btns.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            loadChart(btn.dataset.period);
-        });
-    });
+    btns.forEach(btn => btn.addEventListener('click', () => {
+        btns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        loadChart(btn.dataset.period);
+    }));
     loadChart('7d');
     new Chart(document.getElementById('statusChart'), {
         type: 'doughnut',

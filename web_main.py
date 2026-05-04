@@ -74,24 +74,32 @@ async def login_page(request: Request, error: str = None):
     return templates.TemplateResponse("login.html", {"request": request, "error": error})
 
 @app.post("/auth")
-async def auth(username: str = Form(...), password: str = Form(...)):
-    user = await get_user_by_username(username)
-    if not user or not user.get("password_hash"):
-        return templates.TemplateResponse("login.html", {"request": None, "error": "Неверные данные"})
-    if not verify_password(password, user["password_hash"]):
-        return templates.TemplateResponse("login.html", {"request": None, "error": "Неверные данные"})
-    if not JWT_AVAILABLE:
-        return templates.TemplateResponse("login.html", {"request": None, "error": "JWT not available"})
-    token = create_jwt_token(user["user_id"], user["role"])
-    resp = RedirectResponse(url="/dashboard", status_code=302)
-    resp.set_cookie(key="access_token", value=token, httponly=True)
-    return resp
+async def auth(request: Request, user_id: int = Form(...)):
+    if user_id in ADMIN_IDS:
+        resp = RedirectResponse(url="/dashboard", status_code=302)
+        resp.set_cookie(key="admin_id", value=str(user_id), httponly=True)
+        return resp
+    return templates.TemplateResponse("login.html", {"request": request, "error": "Неверный ID"})
 
 @app.get("/logout")
 async def logout():
     resp = RedirectResponse(url="/")
-    resp.delete_cookie("access_token")
+    resp.delete_cookie("admin_id")
     return resp
+
+async def get_current_user(request: Request):
+    admin_id = request.cookies.get("admin_id")
+    if not admin_id or int(admin_id) not in ADMIN_IDS:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    user = await get_user(int(admin_id))
+    if not user:
+        user = {"user_id": int(admin_id), "role": "admin", "username": "admin"}
+    return user
+
+async def get_current_admin(user: dict = Depends(get_current_user)):
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin rights required")
+    return user
 
 # ========== DASHBOARD ==========
 @app.get("/dashboard", response_class=HTMLResponse)

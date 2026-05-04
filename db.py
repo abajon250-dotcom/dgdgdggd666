@@ -893,5 +893,62 @@ async def get_user_by_username(username: str) -> Optional[Dict]:
         row = await conn.fetchrow("SELECT * FROM users WHERE username = $1", username)
         return dict(row) if row else None
 
+# ============================================================
+# Дополнительные функции для веб-панели
+# ============================================================
+async def get_user_by_id(user_id: int) -> Optional[Dict]:
+    """Получить пользователя по ID (алиас для get_user)"""
+    return await get_user(user_id)
+
+async def get_user_by_username(username: str) -> Optional[Dict]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT * FROM users WHERE username = $1", username)
+        return dict(row) if row else None
+
+async def get_total_users_count() -> int:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetchval("SELECT COUNT(*) FROM users") or 0
+
+async def get_new_users_count(days: int = 1) -> int:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetchval("SELECT COUNT(*) FROM users WHERE registered_at >= NOW() - make_interval(days => $1)", days) or 0
+
+async def get_active_tickets_count() -> int:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetchval("SELECT COUNT(*) FROM tickets WHERE status = 'open'") or 0
+
+# Функции для API-ключей, если их нет
+async def create_api_key(user_id: int, permissions: str) -> str:
+    import uuid
+    api_key = "sk_" + uuid.uuid4().hex
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("INSERT INTO api_keys (user_id, api_key, permissions, created_at) VALUES ($1, $2, $3, NOW())", user_id, api_key, permissions)
+    return api_key
+
+async def revoke_api_key(key_id: int):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM api_keys WHERE id = $1", key_id)
+
+async def update_subscription(user_id: int, plan: str, status: str, end_date: str, auto_renew: bool):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO subscriptions (user_id, plan, status, end_date, auto_renew)
+            VALUES ($1, $2, $3, $4::TIMESTAMP, $5)
+            ON CONFLICT (user_id) DO UPDATE SET plan=$2, status=$3, end_date=$4::TIMESTAMP, auto_renew=$5
+        """, user_id, plan, status, end_date, auto_renew)
+
+async def grant_achievement(user_id: int, achievement: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("INSERT INTO achievements (user_id, achievement, earned_at) VALUES ($1, $2, NOW()) ON CONFLICT DO NOTHING", user_id, achievement)
+
+
 async def update_user_role(user_id: int, role: str):
     await set_user_role(user_id, role)

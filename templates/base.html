@@ -4,50 +4,60 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}eSIM Admin{% endblock %}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="{{ url_for('static', path='/js/script.js') }}" defer></script>
     {% block head %}{% endblock %}
 </head>
 <body>
-<div class="container-fluid p-0">
-    <div class="row g-0">
-        <div class="col-md-2 sidebar">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h4>⚡ eSIM Panel</h4>
-                <span class="theme-switch">🌓</span>
+    <div class="container">
+        <aside class="sidebar glass">
+            <div class="logo">eSIM Admin</div>
+            <div class="menu-groups">
+                <div class="nav-group">
+                    <p class="nav-title">ГЛАВНОЕ</p>
+                    <ul>
+                        <li class="{% if request.url.path == '/dashboard' %}active{% endif %}"><i class="fas fa-th-large"></i> <a href="/dashboard">Дашборд</a></li>
+                        <li class="{% if request.url.path.startswith('/submissions') %}active{% endif %}"><i class="fas fa-file-alt"></i> <a href="/submissions">Заявки</a></li>
+                        <li class="{% if request.url.path.startswith('/users') %}active{% endif %}"><i class="fas fa-users"></i> <a href="/users">Пользователи</a></li>
+                        <li class="{% if request.url.path.startswith('/tickets') %}active{% endif %}"><i class="fas fa-ticket-alt"></i> <a href="/tickets">Тикеты</a></li>
+                        <li class="{% if request.url.path.startswith('/operators') %}active{% endif %}"><i class="fas fa-tower-broadcast"></i> <a href="/operators">Операторы</a></li>
+                        <li class="{% if request.url.path.startswith('/blacklist') %}active{% endif %}"><i class="fas fa-ban"></i> <a href="/blacklist">Чёрный список</a></li>
+                        <li class="{% if request.url.path.startswith('/broadcast') %}active{% endif %}"><i class="fas fa-bullhorn"></i> <a href="/broadcast">Рассылка</a></li>
+                        <li class="{% if request.url.path.startswith('/analytics') %}active{% endif %}"><i class="fas fa-chart-line"></i> <a href="/analytics">Аналитика</a></li>
+                        <li class="{% if request.url.path.startswith('/stats') %}active{% endif %}"><i class="fas fa-chart-pie"></i> <a href="/stats">Статистика</a></li>
+                        <li class="{% if request.url.path.startswith('/reports') %}active{% endif %}"><i class="fas fa-file-invoice"></i> <a href="/reports">Отчёты</a></li>
+                        <li class="{% if request.url.path.startswith('/achievements') %}active{% endif %}"><i class="fas fa-medal"></i> <a href="/achievements">Анализ и уровни</a></li>
+                    </ul>
+                </div>
+                <div class="nav-group">
+                    <p class="nav-title">НАСТРОЙКИ</p>
+                    <ul>
+                        <li class="{% if request.url.path.startswith('/settings') %}active{% endif %}"><i class="fas fa-cog"></i> <a href="/settings">Настройки</a></li>
+                        <li class="{% if request.url.path.startswith('/workers') %}active{% endif %}"><i class="fas fa-users-cog"></i> <a href="/workers">Работники</a></li>
+                        <li class="{% if request.url.path.startswith('/logs') %}active{% endif %}"><i class="fas fa-history"></i> <a href="/logs">Логи и мониторинг</a></li>
+                    </ul>
+                </div>
             </div>
-            <div class="menu-group"><div class="menu-title">ГЛАВНОЕ</div>
-                <a href="/dashboard" class="{% if request.url.path == '/dashboard' %}active{% endif %}">📊 Дашборд</a>
-                <a href="/submissions" class="{% if request.url.path.startswith('/submissions') %}active{% endif %}">📋 Заявки</a>
-                <a href="/users" class="{% if request.url.path.startswith('/users') %}active{% endif %}">👥 Пользователи</a>
-                <a href="/tickets" class="{% if request.url.path.startswith('/tickets') %}active{% endif %}">🎫 Тикеты</a>
-                <a href="/operators" class="{% if request.url.path.startswith('/operators') %}active{% endif %}">📡 Операторы</a>
-                <a href="/blacklist" class="{% if request.url.path.startswith('/blacklist') %}active{% endif %}">🚫 Чёрный список</a>
-                <a href="/broadcast" class="{% if request.url.path.startswith('/broadcast') %}active{% endif %}">📢 Рассылка</a>
-                <a href="/analytics" class="{% if request.url.path.startswith('/analytics') %}active{% endif %}">📈 Аналитика</a>
-                <a href="/stats" class="{% if request.url.path.startswith('/stats') %}active{% endif %}">📉 Статистика</a>
-                <a href="/reports" class="{% if request.url.path.startswith('/reports') %}active{% endif %}">📄 Отчёты</a>
-                <a href="/achievements" class="{% if request.url.path.startswith('/achievements') %}active{% endif %}">🏆 Ачивки и уровни</a>
+            <div class="user-profile">
+                <img src="https://ui-avatars.com/api/?background=4e73df&color=fff&name={{ admin_name }}" alt="Admin">
+                <div class="user-info">
+                    <span class="name">{{ admin_name }}</span>
+                    <span class="id">ID: {{ admin_id }}</span>
+                </div>
+                <a href="/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i></a>
             </div>
-            <div class="menu-group mt-3"><div class="menu-title">НАСТРОЙКИ</div>
-                <a href="/settings" class="{% if request.url.path.startswith('/settings') %}active{% endif %}">⚙️ Настройки</a>
-                <a href="/workers" class="{% if request.url.path.startswith('/workers') %}active{% endif %}">👔 Работники</a>
-                <a href="/logs" class="{% if request.url.path.startswith('/logs') %}active{% endif %}">📜 Логи и мониторинг</a>
-                <a href="/audit-log" class="{% if request.url.path.startswith('/audit-log') %}active{% endif %}">🕵️ Аудит</a>
-                <a href="/api-keys" class="{% if request.url.path.startswith('/api-keys') %}active{% endif %}">🔑 API-ключи</a>
-                <a href="/subscriptions" class="{% if request.url.path.startswith('/subscriptions') %}active{% endif %}">💳 Подписки</a>
-            </div>
-            <hr class="my-3">
-            <a href="/logout" style="color:#f87171;">🚪 Выйти</a>
-        </div>
-        <div class="col-md-10 p-4">
+        </aside>
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="time" id="current-time"></div>
+                <button class="btn-refresh" onclick="location.reload()"><i class="fas fa-sync-alt"></i> Обновить данные</button>
+            </header>
             {% block content %}{% endblock %}
-        </div>
+        </main>
     </div>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <div class="toast-container" id="toastContainer"></div>
 </body>
 </html>

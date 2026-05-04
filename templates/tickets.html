@@ -1,29 +1,24 @@
 {% extends "base.html" %}
-{% block title %}Тикеты поддержки{% endblock %}
+{% block title %}Тикеты{% endblock %}
 {% block content %}
-<h2 class="mb-4">🎫 Открытые тикеты</h2>
-<div class="row g-4">
+<h4>🎫 АКТИВНЫЕ ТИКЕТЫ</h4>
+<div class="tickets-grid">
     {% for ticket in tickets %}
-    <div class="col-md-6">
-        <div class="card h-100">
-            <div class="card-header">
-                Тикет #{{ ticket.id }} ({{ ticket.category }})
-            </div>
-            <div class="card-body">
-                <p><strong>Сообщение:</strong> {{ ticket.message }}</p>
-                <p class="text-muted small">от пользователя ID {{ ticket.user_id }}, {{ ticket.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
-                <form method="post" action="/tickets/answer">
-                    <input type="hidden" name="ticket_id" value="{{ ticket.id }}">
-                    <div class="mb-2">
-                        <textarea name="response_text" class="form-control" rows="3" placeholder="Ваш ответ..." required></textarea>
-                    </div>
-                    <button type="submit" class="btn btn-primary w-100">Ответить и закрыть</button>
-                </form>
-            </div>
+    <div class="glass ticket-card">
+        <div class="ticket-header">
+            <span class="ticket-id">#{{ ticket.id }}</span>
+            <span class="ticket-category">{{ ticket.category }}</span>
         </div>
+        <div class="ticket-message">{{ ticket.message[:100] }}...</div>
+        <div class="ticket-meta">от пользователя ID {{ ticket.user_id }}, {{ ticket.created_at.strftime('%d.%m.%Y %H:%M') }}</div>
+        <form method="post" action="/tickets/answer" class="ticket-answer-form">
+            <input type="hidden" name="ticket_id" value="{{ ticket.id }}">
+            <textarea name="response_text" rows="2" placeholder="Ответ..." required></textarea>
+            <button type="submit" class="btn-primary">Ответить и закрыть</button>
+        </form>
     </div>
     {% else %}
-    <div class="col-12"><div class="alert alert-info">Нет открытых тикетов</div></div>
+    <div class="glass">Нет открытых тикетов.</div>
     {% endfor %}
 </div>
 {% endblock %}

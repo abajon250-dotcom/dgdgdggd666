@@ -413,5 +413,30 @@ async def subscription_update_web(user_id: int = Form(...), plan: str = Form(...
     await update_subscription(user_id, plan, status, end_date, auto_renew)
     return RedirectResponse(url="/subscriptions", status_code=302)
 
+async def get_active_tickets_count():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetchval("SELECT COUNT(*) FROM tickets WHERE status = 'open'") or 0
+
+async def get_recent_notifications(limit=5):
+    # Здесь можно сделать выборку из audit_log или отдельной таблицы notifications
+    # Для примера вернём статические данные, как на скриншоте
+    return [
+        {"text": "Новая заявка от @user123", "time": "2 мин назад"},
+        {"text": "Новый тикет от @user456", "time": "5 мин назад"},
+        {"text": "Заявка #1234 принята", "time": "10 мин назад"},
+        {"text": "Пользователь @user789 зарегистрирован", "time": "15 мин назад"},
+        {"text": "Выплата #5678 завершена", "time": "20 мин назад"},
+    ]
+
+# Внутри маршрута /dashboard добавьте:
+    active_tickets = await get_active_tickets_count()
+    notifications = await get_recent_notifications()
+    # Для расчёта роста можно добавить логику сравнения с предыдущим днём
+    # Для простоты используем заглушки
+    new_users_today = 12
+    submissions_growth = 8
+    earnings_growth = 15
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

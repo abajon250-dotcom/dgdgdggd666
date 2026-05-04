@@ -1,29 +1,27 @@
 {% extends "base.html" %}
 {% block title %}Работники{% endblock %}
 {% block content %}
-<h2 class="mb-4">👔 Управление работниками</h2>
-<div class="card p-4 mb-4">
-    <h5>➕ Добавить работника</h5>
-    <form method="post" action="/workers/add" class="row g-2">
-        <div class="col-md-4"><input type="number" name="user_id" class="form-control" placeholder="ID пользователя" required></div>
-        <div class="col-md-6"><input type="text" name="permissions" class="form-control" placeholder="Права (например, can_pay,can_block)"></div>
-        <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">Добавить</button></div>
-    </form>
-</div>
-<div class="card p-3">
-    <h5>📋 Список работников</h5>
-    <table class="table">
-        <thead><tr><th>ID</th><th>Username</th><th>Права</th><th></th></tr></thead>
+<div class="glass table-container">
+    <div class="top-bar-inline">
+        <h4>👔 РАБОТНИКИ</h4>
+        <form method="post" action="/workers/add" class="inline-form">
+            <input type="number" name="user_id" placeholder="ID пользователя" required>
+            <input type="text" name="permissions" placeholder="Права (опционально)">
+            <button type="submit" class="btn-primary">Добавить</button>
+        </form>
+    </div>
+    <table>
+        <thead><tr><th>ID</th><th>Username</th><th>Права</th><th>Действие</th></tr></thead>
         <tbody>
             {% for w in workers %}
             <tr>
                 <td>{{ w.user_id }}</td>
                 <td>@{{ w.username }}</td>
-                <td>{{ w.permissions or '—' }}</td>
+                <td>{{ w.permissions or 'по умолчанию' }}</td>
                 <td>
-                    <form method="post" action="/workers/remove" onsubmit="return confirm('Удалить работника?');">
+                    <form method="post" action="/workers/remove" style="display:inline;">
                         <input type="hidden" name="user_id" value="{{ w.user_id }}">
-                        <button type="submit" class="btn btn-sm btn-danger">Удалить</button>
+                        <button type="submit" class="action-btn reject"><i class="fas fa-user-minus"></i></button>
                     </form>
                 </td>
             </tr>

@@ -1,19 +1,17 @@
 {% extends "base.html" %}
 {% block title %}API-ключи{% endblock %}
 {% block content %}
-<h2 class="mb-4">🔑 Управление API-ключами</h2>
-<div class="card p-4 mb-4">
-    <h5>➕ Создать API-ключ</h5>
-    <form method="post" action="/api-keys/create" class="row g-2">
-        <div class="col-md-4"><input type="number" name="user_id" class="form-control" placeholder="ID пользователя" required></div>
-        <div class="col-md-6"><input type="text" name="permissions" class="form-control" placeholder="Права (например, read,write)"></div>
-        <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">Создать</button></div>
-    </form>
-</div>
-<div class="card p-3">
-    <h5>📋 Список ключей</h5>
-    <table class="table">
-        <thead><tr><th>ID</th><th>Пользователь</th><th>Ключ</th><th>Права</th><th>Создан</th><th>Последнее использование</th><th></th></tr></thead>
+<div class="glass table-container">
+    <div class="top-bar-inline">
+        <h4>🔑 API-КЛЮЧИ</h4>
+        <form method="post" action="/api-keys/create" class="inline-form">
+            <input type="number" name="user_id" placeholder="ID пользователя" required>
+            <input type="text" name="permissions" placeholder="Права">
+            <button type="submit" class="btn-primary">Создать</button>
+        </form>
+    </div>
+    <table>
+        <thead><tr><th>ID</th><th>Пользователь</th><th>API Key</th><th>Права</th><th>Создан</th><th>Последнее использование</th><th></th></tr></thead>
         <tbody>
             {% for key in api_keys %}
             <tr>
@@ -21,12 +19,12 @@
                 <td>{{ key.user_id }}</td>
                 <td><code>{{ key.api_key[:8] }}...</code></td>
                 <td>{{ key.permissions }}</td>
-                <td>{{ key.created_at.strftime('%d.%m.%Y') }}</td>
+                <td>{{ key.created_at.strftime('%d.%m.%Y') if key.created_at else '' }}</td>
                 <td>{{ key.last_used.strftime('%d.%m.%Y %H:%M') if key.last_used else '—' }}</td>
                 <td>
-                    <form method="post" action="/api-keys/revoke" onsubmit="return confirm('Отозвать ключ?');">
+                    <form method="post" action="/api-keys/revoke" style="display:inline;">
                         <input type="hidden" name="key_id" value="{{ key.id }}">
-                        <button type="submit" class="btn btn-sm btn-danger">Отозвать</button>
+                        <button type="submit" class="action-btn reject"><i class="fas fa-trash-alt"></i></button>
                     </form>
                 </td>
             </tr>

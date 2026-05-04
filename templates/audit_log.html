@@ -1,22 +1,23 @@
 {% extends "base.html" %}
 {% block title %}Аудит{% endblock %}
 {% block content %}
-<h2 class="mb-4">🕵️ Журнал аудита</h2>
-<div class="card p-3">
-    <table class="table">
-        <thead><tr><th>ID</th><th>Пользователь</th><th>Действие</th><th>Детали</th><th>IP</th><th>Время</th></tr></thead>
-        <tbody>
-            {% for log in logs %}
-            <tr>
-                <td>{{ log.id }}</td>
-                <td>{{ log.user_id }}</td>
-                <td>{{ log.action }}</td>
-                <td>{{ log.details }}</td>
-                <td>{{ log.ip or '—' }}</td>
-                <td>{{ log.created_at.strftime('%d.%m.%Y %H:%M:%S') }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<div class="glass table-container">
+    <h4>🕵️ АУДИТ ЛОГ</h4>
+    <div class="table-responsive">
+        <table>
+            <thead><tr><th>Дата</th><th>Пользователь</th><th>Действие</th><th>Детали</th><th>IP</th></tr></thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td>{{ log.created_at.strftime('%d.%m.%Y %H:%M:%S') }}</td>
+                    <td>{{ log.user_id }}</td>
+                    <td>{{ log.action }}</td>
+                    <td>{{ log.details }}</td>
+                    <td>{{ log.ip or '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endblock %}

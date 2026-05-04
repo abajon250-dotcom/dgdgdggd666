@@ -1,21 +1,24 @@
 {% extends "base.html" %}
 {% block title %}Отчёты{% endblock %}
 {% block content %}
-<h2 class="mb-4">📄 Генерация отчётов</h2>
-<div class="card p-4">
-    <div class="row">
-        <div class="col-md-6">
-            <button class="btn btn-primary w-100 mb-3" onclick="location.href='/reports/generate?type=daily'">📅 Отчёт за день</button>
+<div class="glass" style="max-width: 500px;">
+    <h4>📄 ГЕНЕРАЦИЯ ОТЧЁТА</h4>
+    <form method="get" action="/reports/generate">
+        <select name="report_type">
+            <option value="daily">Ежедневный</option>
+            <option value="weekly">Еженедельный</option>
+            <option value="monthly">Ежемесячный</option>
+            <option value="custom">Произвольный период</option>
+        </select>
+        <div id="customDateRange" style="display:none;">
+            <input type="date" name="start_date"> — <input type="date" name="end_date">
         </div>
-        <div class="col-md-6">
-            <button class="btn btn-primary w-100 mb-3" onclick="location.href='/reports/generate?type=weekly'">📆 Отчёт за неделю</button>
-        </div>
-        <div class="col-md-6">
-            <button class="btn btn-primary w-100" onclick="location.href='/reports/generate?type=monthly'">📊 Отчёт за месяц</button>
-        </div>
-        <div class="col-md-6">
-            <button class="btn btn-secondary w-100" onclick="location.href='/reports/export'">📤 Экспорт всех данных (CSV)</button>
-        </div>
-    </div>
+        <button type="submit" class="btn-primary">Сформировать CSV</button>
+    </form>
 </div>
+<script>
+    document.querySelector('select[name="report_type"]').addEventListener('change', function() {
+        document.getElementById('customDateRange').style.display = this.value === 'custom' ? 'block' : 'none';
+    });
+</script>
 {% endblock %}

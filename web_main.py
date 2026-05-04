@@ -185,7 +185,7 @@ async def get_current_admin(request: Request):
 # ---------- Маршруты ----------
 @app.get("/", response_class=HTMLResponse)
 async def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request, "bot_username": "ваш_бот_username"})
+    return templates.TemplateResponse("login.html", {"request": request, "bot_username": "Tetribot7827bot"})
 
 @app.post("/auth")
 async def auth(request: Request):

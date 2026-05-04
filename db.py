@@ -1,4 +1,3 @@
-# db.py – полная версия для PostgreSQL (asyncpg)
 import asyncpg
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Tuple
@@ -6,6 +5,9 @@ from config import DATABASE_URL, ADMIN_IDS
 
 _pool: Optional[asyncpg.Pool] = None
 
+# ============================================================
+# Пул соединений
+# ============================================================
 async def init_db_pool():
     global _pool
     if _pool is None:
@@ -17,9 +19,9 @@ async def get_pool() -> asyncpg.Pool:
         await init_db_pool()
     return _pool
 
-# ------------------------------------------------------------
+# ============================================================
 # Вспомогательные fetch/execute
-# ------------------------------------------------------------
+# ============================================================
 async def fetch(query: str, *args) -> List[Dict]:
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -31,14 +33,13 @@ async def execute(query: str, *args):
     async with pool.acquire() as conn:
         await conn.execute(query, *args)
 
-# ------------------------------------------------------------
-# Инициализация таблиц (дополнительная – основные таблицы создаются через init_db.py)
-# ------------------------------------------------------------
+# ============================================================
+# Инициализация таблиц (создание, если не существуют)
+# ============================================================
 async def init_db():
-    """Создаёт таблицы, если их нет (вызывается при старте бота)"""
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # Проверяем, существует ли таблица users (если нет – создаём)
+        # Пользователи
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 user_id BIGINT PRIMARY KEY,
@@ -59,7 +60,7 @@ async def init_db():
                 password_hash TEXT
             )
         """)
-        # Остальные таблицы создаются через init_db.py, но для безопасности продублируем создание
+        # Заявки на eSIM
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS qr_submissions (
                 id SERIAL PRIMARY KEY,
@@ -110,7 +111,7 @@ async def init_db():
                 value TEXT
             )
         """)
-        # daily_stats
+        # Статистика по дням
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS daily_stats (
                 date DATE PRIMARY KEY,
@@ -125,7 +126,7 @@ async def init_db():
                 name TEXT
             )
         """)
-        # withdraw_requests
+        # Заявки на вывод
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS withdraw_requests (
                 id SERIAL PRIMARY KEY,
@@ -137,7 +138,7 @@ async def init_db():
                 admin_id BIGINT
             )
         """)
-        # custom_texts
+        # Кастомные тексты
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS custom_texts (
                 key TEXT PRIMARY KEY,
@@ -145,7 +146,7 @@ async def init_db():
                 updated_at TIMESTAMP
             )
         """)
-        # tickets
+        # Тикеты поддержки
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS tickets (
                 id SERIAL PRIMARY KEY,
@@ -159,7 +160,7 @@ async def init_db():
                 closed_at TIMESTAMP
             )
         """)
-        # blacklist
+        # Чёрный список
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS blacklist (
                 phone TEXT PRIMARY KEY,
@@ -167,7 +168,7 @@ async def init_db():
                 admin_id BIGINT
             )
         """)
-        # achievements
+        # Ачивки
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS achievements (
                 user_id BIGINT,
@@ -176,7 +177,7 @@ async def init_db():
                 PRIMARY KEY (user_id, achievement)
             )
         """)
-        # ranks
+        # Ранги / уровни
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS ranks (
                 user_id BIGINT PRIMARY KEY,
@@ -185,7 +186,7 @@ async def init_db():
                 updated_at TIMESTAMP
             )
         """)
-        # api_keys
+        # API-ключи
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS api_keys (
                 id SERIAL PRIMARY KEY,
@@ -196,7 +197,7 @@ async def init_db():
                 last_used TIMESTAMP
             )
         """)
-        # subscriptions
+        # Подписки
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS subscriptions (
                 user_id BIGINT PRIMARY KEY,
@@ -207,7 +208,7 @@ async def init_db():
                 auto_renew BOOLEAN DEFAULT FALSE
             )
         """)
-        # audit_log
+        # Аудит-лог
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS audit_log (
                 id SERIAL PRIMARY KEY,
@@ -218,7 +219,7 @@ async def init_db():
                 created_at TIMESTAMP DEFAULT NOW()
             )
         """)
-        # notifications
+        # Уведомления (для WebSocket)
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS notifications (
                 id SERIAL PRIMARY KEY,
@@ -230,7 +231,7 @@ async def init_db():
                 created_at TIMESTAMP DEFAULT NOW()
             )
         """)
-        # user_sessions
+        # Сессии для веб-панели (опционально)
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS user_sessions (
                 session_id TEXT PRIMARY KEY,
@@ -252,9 +253,9 @@ async def init_db():
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys(user_id)")
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id)")
 
-# ------------------------------------------------------------
-# Пользователи и роли
-# ------------------------------------------------------------
+# ============================================================
+# Пользователи
+# ============================================================
 async def register_user(user_id: int, username: str, full_name: str, referrer_id: int = None):
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -288,11 +289,6 @@ async def get_user_by_username(username: str) -> Optional[Dict]:
     async with pool.acquire() as conn:
         row = await conn.fetchrow("SELECT * FROM users WHERE username = $1", username)
         return dict(row) if row else None
-
-async def update_user_password_hash(user_id: int, password_hash: str):
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        await conn.execute("UPDATE users SET password_hash = $1 WHERE user_id = $2", password_hash, user_id)
 
 async def update_user_earnings(user_id: int, amount: float, is_referral_bonus=False):
     pool = await get_pool()
@@ -341,9 +337,14 @@ async def get_workers() -> List[Dict]:
         rows = await conn.fetch("SELECT user_id, username, permissions FROM users WHERE role = 'worker'")
         return [dict(row) for row in rows]
 
-# ------------------------------------------------------------
+async def update_user_password_hash(user_id: int, password_hash: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("UPDATE users SET password_hash = $1 WHERE user_id = $2", password_hash, user_id)
+
+# ============================================================
 # Заявки
-# ------------------------------------------------------------
+# ============================================================
 async def create_submission(user_id: int, operator: str, price: float, phone: str, photo_file_id: str, region: str = None, mode: str = 'hold') -> int:
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -363,10 +364,7 @@ async def get_pending_submissions(limit: int = 20) -> List[Dict]:
 async def get_pending_submissions_by_mode(mode: str, limit: int = 20) -> List[Dict]:
     pool = await get_pool()
     async with pool.acquire() as conn:
-        rows = await conn.fetch(
-            "SELECT * FROM qr_submissions WHERE status = 'pending' AND mode = $1 ORDER BY submitted_at DESC LIMIT $2",
-            mode, limit
-        )
+        rows = await conn.fetch("SELECT * FROM qr_submissions WHERE status = 'pending' AND mode = $1 ORDER BY submitted_at DESC LIMIT $2", mode, limit)
         return [dict(row) for row in rows]
 
 async def get_submission(submission_id: int) -> Optional[Dict]:
@@ -434,9 +432,9 @@ async def get_taken_submissions(worker_id: int = None) -> List[Dict]:
             rows = await conn.fetch("SELECT * FROM qr_submissions WHERE status = 'taken'")
         return [dict(row) for row in rows]
 
-# ------------------------------------------------------------
+# ============================================================
 # Операторы
-# ------------------------------------------------------------
+# ============================================================
 async def get_operators() -> List[Dict]:
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -476,9 +474,9 @@ async def reorder_operators(order: List[str]):
         for idx, name in enumerate(order):
             await conn.execute("UPDATE operators SET sort_order = $1 WHERE name = $2", idx, name)
 
-# ------------------------------------------------------------
+# ============================================================
 # Бронирования
-# ------------------------------------------------------------
+# ============================================================
 async def create_booking(user_id: int, operator: str) -> int:
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -506,9 +504,9 @@ async def count_active_bookings_for_operator(operator: str) -> int:
     async with pool.acquire() as conn:
         return await conn.fetchval("SELECT COUNT(*) FROM bookings WHERE operator = $1 AND used = FALSE", operator) or 0
 
-# ------------------------------------------------------------
+# ============================================================
 # Настройки
-# ------------------------------------------------------------
+# ============================================================
 async def get_setting(key: str, default: str = None) -> Optional[str]:
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -520,9 +518,9 @@ async def set_setting(key: str, value: str):
     async with pool.acquire() as conn:
         await conn.execute("INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2", key, value)
 
-# ------------------------------------------------------------
-# Статистика
-# ------------------------------------------------------------
+# ============================================================
+# Статистика для пользователей и админки
+# ============================================================
 async def get_user_stats(user_id: int, days: int = None) -> Dict:
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -603,9 +601,9 @@ async def get_operator_top_regions(operator: str, period_days: int = 7) -> List[
         """, operator, period_days)
         return [dict(row) for row in rows]
 
-# ------------------------------------------------------------
-# Рефералы
-# ------------------------------------------------------------
+# ============================================================
+# Реферальная система
+# ============================================================
 async def get_referral_percent(referrer_id: int) -> float:
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -630,9 +628,33 @@ async def get_referral_stats(user_id: int) -> Dict:
         earnings = user['referral_earnings'] if user else 0
         return {"count": count, "earnings": earnings}
 
-# ------------------------------------------------------------
-# Тикеты
-# ------------------------------------------------------------
+# ============================================================
+# Чёрный список
+# ============================================================
+async def add_to_blacklist(phone: str, admin_id: int):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("INSERT INTO blacklist (phone, created_at, admin_id) VALUES ($1, NOW(), $2) ON CONFLICT (phone) DO NOTHING", phone, admin_id)
+
+async def remove_from_blacklist(phone: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM blacklist WHERE phone = $1", phone)
+
+async def is_blacklisted(phone: str) -> bool:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetchval("SELECT 1 FROM blacklist WHERE phone = $1", phone) is not None
+
+async def get_blacklist() -> List[str]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT phone FROM blacklist ORDER BY created_at DESC")
+        return [r['phone'] for r in rows]
+
+# ============================================================
+# Тикеты поддержки
+# ============================================================
 async def create_ticket(user_id: int, category: str, message: str) -> int:
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -649,80 +671,30 @@ async def get_open_tickets() -> List[Dict]:
         return [dict(row) for row in rows]
 
 async def answer_ticket(ticket_id: int, response: str, admin_id: int) -> Optional[int]:
-    ticket = await fetch("SELECT user_id FROM tickets WHERE id = $1", ticket_id)
-    if not ticket:
-        return None
-    user_id = ticket[0]['user_id']
-    await execute("UPDATE tickets SET admin_response = $1, status = 'closed', updated_at = NOW(), closed_at = NOW() WHERE id = $2", response, ticket_id)
-    # Запись в аудит-лог (опционально)
-    try:
-        from db import add_audit_log
-        await add_audit_log(admin_id, "answer_ticket", f"Ticket #{ticket_id}: {response[:50]}...")
-    except:
-        pass
-    return user_id
-
-# ------------------------------------------------------------
-# Чёрный список
-# ------------------------------------------------------------
-async def add_to_blacklist(phone: str, admin_id: int):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        await conn.execute("INSERT INTO blacklist (phone, created_at, admin_id) VALUES ($1, NOW(), $2) ON CONFLICT (phone) DO NOTHING", phone, admin_id)
+        ticket = await conn.fetchrow("SELECT user_id FROM tickets WHERE id = $1 AND status = 'open'", ticket_id)
+        if not ticket:
+            return None
+        user_id = ticket['user_id']
+        await conn.execute("""
+            UPDATE tickets SET admin_response = $1, status = 'closed', updated_at = NOW(), closed_at = NOW()
+            WHERE id = $2
+        """, response, ticket_id)
+        return user_id
 
-async def remove_from_blacklist(phone: str):
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        await conn.execute("DELETE FROM blacklist WHERE phone = $1", phone)
-
-async def is_blacklisted(phone: str) -> bool:
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        return await conn.fetchval("SELECT 1 FROM blacklist WHERE phone = $1", phone) is not None
-
-async def get_blacklist() -> List[Dict]:
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        rows = await conn.fetch("SELECT phone, created_at FROM blacklist ORDER BY created_at DESC")
-        return [dict(row) for row in rows]
-
-# ------------------------------------------------------------
-# Кастомные тексты
-# ------------------------------------------------------------
-async def get_custom_text(key: str, default: str = "") -> str:
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        val = await conn.fetchval("SELECT value FROM custom_texts WHERE key = $1", key)
-        return val if val else default
-
-async def set_custom_text(key: str, value: str):
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        await conn.execute("INSERT INTO custom_texts (key, value, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()", key, value)
-
-# ------------------------------------------------------------
-# Ачивки
-# ------------------------------------------------------------
-async def grant_achievement(user_id: int, achievement: str):
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        await conn.execute("INSERT INTO achievements (user_id, achievement, earned_at) VALUES ($1, $2, NOW()) ON CONFLICT DO NOTHING", user_id, achievement)
-
-async def get_user_achievements(user_id: int) -> List[str]:
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        rows = await conn.fetch("SELECT achievement FROM achievements WHERE user_id = $1", user_id)
-        return [r['achievement'] for r in rows]
-
-# ------------------------------------------------------------
+# ============================================================
 # API-ключи
-# ------------------------------------------------------------
+# ============================================================
 async def create_api_key(user_id: int, permissions: str) -> str:
     import uuid
     api_key = "sk_" + uuid.uuid4().hex
     pool = await get_pool()
     async with pool.acquire() as conn:
-        await conn.execute("INSERT INTO api_keys (user_id, api_key, permissions, created_at) VALUES ($1, $2, $3, NOW())", user_id, api_key, permissions)
+        await conn.execute("""
+            INSERT INTO api_keys (user_id, api_key, permissions, created_at)
+            VALUES ($1, $2, $3, NOW())
+        """, user_id, api_key, permissions)
     return api_key
 
 async def revoke_api_key(key_id: int):
@@ -733,12 +705,27 @@ async def revoke_api_key(key_id: int):
 async def get_api_keys() -> List[Dict]:
     pool = await get_pool()
     async with pool.acquire() as conn:
-        rows = await conn.fetch("SELECT id, user_id, api_key, permissions, created_at, last_used FROM api_keys ORDER BY created_at DESC")
+        rows = await conn.fetch("SELECT * FROM api_keys ORDER BY created_at DESC")
         return [dict(row) for row in rows]
 
-# ------------------------------------------------------------
+async def validate_api_key(api_key: str) -> Optional[Dict]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT * FROM api_keys WHERE api_key = $1", api_key)
+        if row:
+            await conn.execute("UPDATE api_keys SET last_used = NOW() WHERE id = $1", row['id'])
+            return dict(row)
+        return None
+
+# ============================================================
 # Подписки
-# ------------------------------------------------------------
+# ============================================================
+async def get_user_subscription(user_id: int) -> Dict:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT * FROM subscriptions WHERE user_id = $1", user_id)
+        return dict(row) if row else {"plan": "free", "status": "active", "auto_renew": False}
+
 async def update_subscription(user_id: int, plan: str, status: str, end_date: str, auto_renew: bool):
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -748,19 +735,74 @@ async def update_subscription(user_id: int, plan: str, status: str, end_date: st
             ON CONFLICT (user_id) DO UPDATE SET plan=$2, status=$3, end_date=$4::TIMESTAMP, auto_renew=$5
         """, user_id, plan, status, end_date, auto_renew)
 
-async def get_user_subscription(user_id: int) -> Dict:
+# ============================================================
+# Ачивки
+# ============================================================
+async def grant_achievement(user_id: int, achievement: str):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT * FROM subscriptions WHERE user_id = $1", user_id)
-        return dict(row) if row else {"plan": "free", "status": "active"}
+        await conn.execute("""
+            INSERT INTO achievements (user_id, achievement, earned_at)
+            VALUES ($1, $2, NOW())
+            ON CONFLICT (user_id, achievement) DO NOTHING
+        """, user_id, achievement)
 
-# ------------------------------------------------------------
+async def get_user_achievements(user_id: int) -> List[str]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT achievement FROM achievements WHERE user_id = $1", user_id)
+        return [r['achievement'] for r in rows]
+
+async def get_achievements_list() -> List[Dict]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT u.username, a.achievement, a.earned_at
+            FROM achievements a
+            JOIN users u ON a.user_id = u.user_id
+            ORDER BY a.earned_at DESC LIMIT 50
+        """)
+        return [dict(row) for row in rows]
+
+# ============================================================
+# Ранги / уровни
+# ============================================================
+async def update_user_rank(user_id: int, level: int, xp: int):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO ranks (user_id, level, xp, updated_at)
+            VALUES ($1, $2, $3, NOW())
+            ON CONFLICT (user_id) DO UPDATE SET level=$2, xp=$3, updated_at=NOW()
+        """, user_id, level, xp)
+
+async def get_user_rank(user_id: int) -> Dict:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT level, xp FROM ranks WHERE user_id = $1", user_id)
+        return dict(row) if row else {"level": 1, "xp": 0}
+
+async def get_ranks_list() -> List[Dict]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT u.username, r.level, r.xp
+            FROM ranks r
+            JOIN users u ON r.user_id = u.user_id
+            ORDER BY r.level DESC LIMIT 20
+        """)
+        return [dict(row) for row in rows]
+
+# ============================================================
 # Аудит-лог
-# ------------------------------------------------------------
+# ============================================================
 async def add_audit_log(user_id: int, action: str, details: str = "", ip: str = ""):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        await conn.execute("INSERT INTO audit_log (user_id, action, details, ip, created_at) VALUES ($1, $2, $3, $4, NOW())", user_id, action, details, ip)
+        await conn.execute("""
+            INSERT INTO audit_log (user_id, action, details, ip, created_at)
+            VALUES ($1, $2, $3, $4, NOW())
+        """, user_id, action, details, ip)
 
 async def get_audit_log(limit: int = 200) -> List[Dict]:
     pool = await get_pool()
@@ -768,10 +810,10 @@ async def get_audit_log(limit: int = 200) -> List[Dict]:
         rows = await conn.fetch("SELECT * FROM audit_log ORDER BY created_at DESC LIMIT $1", limit)
         return [dict(row) for row in rows]
 
-# ------------------------------------------------------------
+# ============================================================
 # Уведомления
-# ------------------------------------------------------------
-async def add_notification(user_id: int, title: str, message: str, type: str = 'info'):
+# ============================================================
+async def add_notification(user_id: int, title: str, message: str, type: str = "info"):
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute("""
@@ -784,11 +826,15 @@ async def get_notifications(user_id: int = None, limit: int = 50) -> List[Dict]:
     async with pool.acquire() as conn:
         if user_id:
             rows = await conn.fetch("""
-                SELECT * FROM notifications WHERE user_id = $1 OR user_id IS NULL
+                SELECT * FROM notifications
+                WHERE user_id = $1 OR user_id IS NULL
                 ORDER BY created_at DESC LIMIT $2
             """, user_id, limit)
         else:
-            rows = await conn.fetch("SELECT * FROM notifications WHERE user_id IS NULL ORDER BY created_at DESC LIMIT $1", limit)
+            rows = await conn.fetch("""
+                SELECT * FROM notifications WHERE user_id IS NULL
+                ORDER BY created_at DESC LIMIT $1
+            """, limit)
         return [dict(row) for row in rows]
 
 async def mark_notification_read(notification_id: int):
@@ -796,10 +842,38 @@ async def mark_notification_read(notification_id: int):
     async with pool.acquire() as conn:
         await conn.execute("UPDATE notifications SET is_read = TRUE WHERE id = $1", notification_id)
 
-# ------------------------------------------------------------
-# Статистика для дашборда
-# ------------------------------------------------------------
-async def get_dashboard_stats() -> Dict:
+async def mark_all_notifications_read(user_id: int):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("UPDATE notifications SET is_read = TRUE WHERE user_id = $1 OR user_id IS NULL", user_id)
+
+async def get_unread_count(user_id: int) -> int:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetchval("""
+            SELECT COUNT(*) FROM notifications
+            WHERE (user_id = $1 OR user_id IS NULL) AND is_read = FALSE
+        """, user_id) or 0
+
+# ============================================================
+# Дополнительная статистика для админки (дашборд)
+# ============================================================
+async def get_total_users_count() -> int:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetchval("SELECT COUNT(*) FROM users") or 0
+
+async def get_new_users_count(days: int = 1) -> int:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetchval("SELECT COUNT(*) FROM users WHERE registered_at >= NOW() - make_interval(days => $1)", days) or 0
+
+async def get_active_tickets_count() -> int:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetchval("SELECT COUNT(*) FROM tickets WHERE status = 'open'") or 0
+
+async def get_dashboard_stats():
     res = await fetch("""
         SELECT
             (SELECT COUNT(*) FROM users) AS total_users,
@@ -811,9 +885,9 @@ async def get_dashboard_stats() -> Dict:
     return res[0] if res else {}
 
 async def get_recent_submissions(limit: int = 10) -> List[Dict]:
-    return await fetch("SELECT id, user_id, operator, price, phone, status, submitted_at FROM qr_submissions ORDER BY submitted_at DESC LIMIT $1", limit)
+    return await fetch("SELECT id, user_id, operator, price, status, submitted_at FROM qr_submissions ORDER BY submitted_at DESC LIMIT $1", limit)
 
-async def get_submissions_ratio() -> Dict:
+async def get_submissions_ratio():
     r = await fetch("""
         SELECT 
             COUNT(CASE WHEN status='accepted' THEN 1 END) as accepted,
@@ -832,151 +906,26 @@ async def get_submissions_ratio() -> Dict:
         return r[0]
     return {"accepted":0,"rejected":0,"pending":0}
 
-async def get_active_tickets_count() -> int:
+# ============================================================
+# Кастомные тексты
+# ============================================================
+async def get_custom_text(key: str, default: str = "") -> str:
     pool = await get_pool()
     async with pool.acquire() as conn:
-        return await conn.fetchval("SELECT COUNT(*) FROM tickets WHERE status = 'open'") or 0
+        val = await conn.fetchval("SELECT value FROM custom_texts WHERE key = $1", key)
+        return val if val else default
 
-# ------------------------------------------------------------
-# Заявки на вывод
-# ------------------------------------------------------------
-async def create_withdraw_request(user_id: int, amount: float) -> int:
+async def set_custom_text(key: str, value: str):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        row = await conn.fetchrow("""
-            INSERT INTO withdraw_requests (user_id, amount, requested_at, status)
-            VALUES ($1, $2, NOW(), 'pending') RETURNING id
-        """, user_id, amount)
-        return row['id']
+        await conn.execute("""
+            INSERT INTO custom_texts (key, value, updated_at)
+            VALUES ($1, $2, NOW())
+            ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()
+        """, key, value)
 
-async def get_pending_withdraw_requests() -> List[Dict]:
+async def get_custom_texts() -> List[Dict]:
     pool = await get_pool()
     async with pool.acquire() as conn:
-        rows = await conn.fetch("SELECT * FROM withdraw_requests WHERE status = 'pending' ORDER BY requested_at ASC")
+        rows = await conn.fetch("SELECT key, value, updated_at FROM custom_texts")
         return [dict(row) for row in rows]
-
-async def update_withdraw_request(request_id: int, status: str, admin_id: int):
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        await conn.execute("""
-            UPDATE withdraw_requests SET status = $1, processed_at = NOW(), admin_id = $2 WHERE id = $3
-        """, status, admin_id, request_id)
-
-# ------------------------------------------------------------
-# Пользователи (дополнительно)
-# ------------------------------------------------------------
-async def get_all_users(limit: int = 200) -> List[Dict]:
-    return await fetch("SELECT user_id, username, total_earned, earned_today, role FROM users ORDER BY user_id LIMIT $1", limit)
-
-
-# ============================================================
-# Статистика для админки
-# ============================================================
-async def get_total_users_count() -> int:
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        return await conn.fetchval("SELECT COUNT(*) FROM users") or 0
-
-async def get_new_users_count(days: int = 1) -> int:
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        return await conn.fetchval("SELECT COUNT(*) FROM users WHERE registered_at >= NOW() - make_interval(days => $1)", days) or 0
-
-async def get_active_tickets_count() -> int:
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        return await conn.fetchval("SELECT COUNT(*) FROM tickets WHERE status = 'open'") or 0
-
-async def get_user_by_username(username: str) -> Optional[Dict]:
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT * FROM users WHERE username = $1", username)
-        return dict(row) if row else None
-
-# ============================================================
-# Дополнительные функции для веб-панели
-# ============================================================
-async def get_user_by_id(user_id: int) -> Optional[Dict]:
-    """Получить пользователя по ID (алиас для get_user)"""
-    return await get_user(user_id)
-
-async def get_user_by_username(username: str) -> Optional[Dict]:
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT * FROM users WHERE username = $1", username)
-        return dict(row) if row else None
-
-async def get_total_users_count() -> int:
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        return await conn.fetchval("SELECT COUNT(*) FROM users") or 0
-
-async def get_new_users_count(days: int = 1) -> int:
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        return await conn.fetchval("SELECT COUNT(*) FROM users WHERE registered_at >= NOW() - make_interval(days => $1)", days) or 0
-
-async def get_active_tickets_count() -> int:
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        return await conn.fetchval("SELECT COUNT(*) FROM tickets WHERE status = 'open'") or 0
-
-# Функции для API-ключей, если их нет
-async def create_api_key(user_id: int, permissions: str) -> str:
-    import uuid
-    api_key = "sk_" + uuid.uuid4().hex
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        await conn.execute("INSERT INTO api_keys (user_id, api_key, permissions, created_at) VALUES ($1, $2, $3, NOW())", user_id, api_key, permissions)
-    return api_key
-
-async def revoke_api_key(key_id: int):
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        await conn.execute("DELETE FROM api_keys WHERE id = $1", key_id)
-
-async def update_subscription(user_id: int, plan: str, status: str, end_date: str, auto_renew: bool):
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        await conn.execute("""
-            INSERT INTO subscriptions (user_id, plan, status, end_date, auto_renew)
-            VALUES ($1, $2, $3, $4::TIMESTAMP, $5)
-            ON CONFLICT (user_id) DO UPDATE SET plan=$2, status=$3, end_date=$4::TIMESTAMP, auto_renew=$5
-        """, user_id, plan, status, end_date, auto_renew)
-
-async def grant_achievement(user_id: int, achievement: str):
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        await conn.execute("INSERT INTO achievements (user_id, achievement, earned_at) VALUES ($1, $2, NOW()) ON CONFLICT DO NOTHING", user_id, achievement)
-
-# ============================================================
-# Недостающие функции для веб-панели
-# ============================================================
-async def get_user_by_id(user_id: int) -> Optional[Dict]:
-    """Синоним get_user – для совместимости"""
-    return await get_user(user_id)
-
-async def get_user_by_username(username: str) -> Optional[Dict]:
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT * FROM users WHERE username = $1", username)
-        return dict(row) if row else None
-
-async def get_total_users_count() -> int:
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        return await conn.fetchval("SELECT COUNT(*) FROM users") or 0
-
-async def get_new_users_count(days: int = 1) -> int:
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        return await conn.fetchval("SELECT COUNT(*) FROM users WHERE registered_at >= NOW() - make_interval(days => $1)", days) or 0
-
-async def get_active_tickets_count() -> int:
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        return await conn.fetchval("SELECT COUNT(*) FROM tickets WHERE status = 'open'") or 0
-
-
-async def update_user_role(user_id: int, role: str):
-    await set_user_role(user_id, role)

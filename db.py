@@ -949,6 +949,34 @@ async def grant_achievement(user_id: int, achievement: str):
     async with pool.acquire() as conn:
         await conn.execute("INSERT INTO achievements (user_id, achievement, earned_at) VALUES ($1, $2, NOW()) ON CONFLICT DO NOTHING", user_id, achievement)
 
+# ============================================================
+# Недостающие функции для веб-панели
+# ============================================================
+async def get_user_by_id(user_id: int) -> Optional[Dict]:
+    """Синоним get_user – для совместимости"""
+    return await get_user(user_id)
+
+async def get_user_by_username(username: str) -> Optional[Dict]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT * FROM users WHERE username = $1", username)
+        return dict(row) if row else None
+
+async def get_total_users_count() -> int:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetchval("SELECT COUNT(*) FROM users") or 0
+
+async def get_new_users_count(days: int = 1) -> int:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetchval("SELECT COUNT(*) FROM users WHERE registered_at >= NOW() - make_interval(days => $1)", days) or 0
+
+async def get_active_tickets_count() -> int:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetchval("SELECT COUNT(*) FROM tickets WHERE status = 'open'") or 0
+
 
 async def update_user_role(user_id: int, role: str):
     await set_user_role(user_id, role)

@@ -929,3 +929,32 @@ async def get_custom_texts() -> List[Dict]:
     async with pool.acquire() as conn:
         rows = await conn.fetch("SELECT key, value, updated_at FROM custom_texts")
         return [dict(row) for row in rows]
+
+# ============================================================
+# Подписки (для веб-панели)
+# ============================================================
+async def get_subscriptions() -> List[Dict]:
+    """Получает список всех подписок пользователей"""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT u.user_id, u.username, s.plan, s.status, s.end_date, s.auto_renew
+            FROM users u
+            LEFT JOIN subscriptions s ON u.user_id = s.user_id
+            ORDER BY u.user_id
+        """)
+        return [dict(row) for row in rows]
+
+# ============================================================
+# Заявки на вывод (недостающая)
+# ============================================================
+async def create_withdraw_request(user_id: int, amount: float) -> int:
+    """Создаёт заявку на вывод средств"""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            INSERT INTO withdraw_requests (user_id, amount, requested_at, status)
+            VALUES ($1, $2, NOW(), 'pending')
+            RETURNING id
+        """, user_id, amount)
+        return row['id']

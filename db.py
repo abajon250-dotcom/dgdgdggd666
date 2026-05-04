@@ -868,5 +868,30 @@ async def update_withdraw_request(request_id: int, status: str, admin_id: int):
 async def get_all_users(limit: int = 200) -> List[Dict]:
     return await fetch("SELECT user_id, username, total_earned, earned_today, role FROM users ORDER BY user_id LIMIT $1", limit)
 
+
+# ============================================================
+# Статистика для админки
+# ============================================================
+async def get_total_users_count() -> int:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetchval("SELECT COUNT(*) FROM users") or 0
+
+async def get_new_users_count(days: int = 1) -> int:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetchval("SELECT COUNT(*) FROM users WHERE registered_at >= NOW() - make_interval(days => $1)", days) or 0
+
+async def get_active_tickets_count() -> int:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetchval("SELECT COUNT(*) FROM tickets WHERE status = 'open'") or 0
+
+async def get_user_by_username(username: str) -> Optional[Dict]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT * FROM users WHERE username = $1", username)
+        return dict(row) if row else None
+
 async def update_user_role(user_id: int, role: str):
     await set_user_role(user_id, role)

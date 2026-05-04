@@ -3,22 +3,33 @@ import uuid
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 
-from fastapi import FastAPI, Request, Depends, HTTPException, Form, Query, WebSocket, WebSocketDisconnect, UploadFile, File
+from fastapi import FastAPI, Request, Depends, HTTPException, Form, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from config import SECRET_KEY, STRIPE_API_KEY
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import uvicorn
-import jwt
-import stripe
 import aiofiles
-import stripe
 
-from db import get_pool, get_user_by_id, get_user_by_username, update_user_role
+# ========== ПРОВЕРКА НАЛИЧИЯ ОПЦИОНАЛЬНЫХ МОДУЛЕЙ ==========
+try:
+    import jwt
+    JWT_AVAILABLE = True
+except ImportError:
+    jwt = None
+    JWT_AVAILABLE = False
+
+try:
+    import stripe
+    from payments import create_payment_intent
+    STRIPE_AVAILABLE = True
+except ImportError:
+    stripe = None
+    STRIPE_AVAILABLE = False
+
+from db import get_pool, get_user_by_id, get_user_by_username, get_total_users_count, get_new_users_count
 from auth import create_jwt_token, decode_jwt_token, hash_password, verify_password
 from roles import require_role
-from payments import create_payment_intent
 from ws_manager import manager
 
 # ========== ИНИЦИАЛИЗАЦИЯ ==========
@@ -26,10 +37,9 @@ app = FastAPI(title="eSIM Bot Admin Panel", version="5.0")
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-SECRET_KEY = "your-super-secret-change-this"  # обязательно замените в продакшене
+SECRET_KEY = "your-super-secret-change-this"  # обязательно замените в продакшене (из config.py)
 security = HTTPBearer()
 
-stripe.api_key = STRIPE_API_KEY
 # ========== БАЗОВЫЕ ФУНКЦИИ БД ==========
 async def fetch(query: str, *args) -> List[Dict]:
     pool = await get_pool()
@@ -42,8 +52,10 @@ async def execute(query: str, *args):
     async with pool.acquire() as conn:
         await conn.execute(query, *args)
 
-# ========== АВТОРИЗАЦИЯ ==========
+# ========== АВТОРИЗАЦИЯ (JWT) ==========
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    if not JWT_AVAILABLE:
+        raise HTTPException(status_code=500, detail="JWT authentication not configured")
     token = credentials.credentials
     payload = decode_jwt_token(token)
     user = await get_user_by_id(payload["user_id"])
@@ -68,10 +80,11 @@ async def auth(username: str = Form(...), password: str = Form(...)):
         return templates.TemplateResponse("login.html", {"request": None, "error": "Неверные данные"})
     if not verify_password(password, user["password_hash"]):
         return templates.TemplateResponse("login.html", {"request": None, "error": "Неверные данные"})
+    if not JWT_AVAILABLE:
+        return templates.TemplateResponse("login.html", {"request": None, "error": "JWT not available"})
     token = create_jwt_token(user["user_id"], user["role"])
     resp = RedirectResponse(url="/dashboard", status_code=302)
     resp.set_cookie(key="access_token", value=token, httponly=True)
-    # Также сохраняем в localStorage на клиенте для WebSocket
     return resp
 
 @app.get("/logout")
@@ -83,7 +96,6 @@ async def logout():
 # ========== DASHBOARD ==========
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request, user: dict = Depends(get_current_user)):
-    # Статистика
     stats = await fetch("""
         SELECT
             (SELECT COUNT(*) FROM users) AS total_users,
@@ -106,7 +118,6 @@ async def dashboard(request: Request, user: dict = Depends(get_current_user)):
             ratio[0]['accepted_pct'] = round(ratio[0]['accepted']/total*100)
             ratio[0]['rejected_pct'] = round(ratio[0]['rejected']/total*100)
             ratio[0]['pending_pct'] = 100 - ratio[0]['accepted_pct'] - ratio[0]['rejected_pct']
-    # Уведомления – из таблицы notifications (заглушка, но можно сделать из audit_log)
     notifications = [
         {"text": "Новая заявка зарегистрирована", "time": "только что"},
     ]
@@ -135,7 +146,6 @@ async def accept_submission(sub_id: int = Form(...), admin: dict = Depends(get_c
         _, bonus = calculate_rank(qr)
         earned = sub['price'] + bonus
         await accept_submission_now(sub_id, admin['user_id'], earned)
-        # Отправляем WebSocket уведомление
         await manager.broadcast({"type": "submission_accepted", "submission_id": sub_id})
     return RedirectResponse(url="/submissions", status_code=302)
 
@@ -154,10 +164,11 @@ async def users_page(request: Request, admin: dict = Depends(get_current_admin))
 
 @app.post("/users/role")
 async def change_user_role(user_id: int = Form(...), role: str = Form(...), admin: dict = Depends(get_current_admin)):
-    await update_user_role(user_id, role)
+    from db import set_user_role
+    await set_user_role(user_id, role)
     return RedirectResponse(url="/users", status_code=302)
 
-# ========== ТИКЕТЫ (Zendesk-like) ==========
+# ========== ТИКЕТЫ ==========
 @app.get("/tickets", response_class=HTMLResponse)
 async def tickets_page(request: Request, user: dict = Depends(get_current_user)):
     tickets = await fetch("SELECT * FROM tickets WHERE status = 'open' ORDER BY created_at ASC")
@@ -168,11 +179,10 @@ async def answer_ticket(ticket_id: int = Form(...), response_text: str = Form(..
     ticket = await fetch("SELECT user_id FROM tickets WHERE id = $1", ticket_id)
     if ticket:
         await execute("UPDATE tickets SET admin_response = $1, status = 'closed', updated_at = NOW(), closed_at = NOW() WHERE id = $2", response_text, ticket_id)
-        # Отправка ответа пользователю через бота (нужно передать bot instance)
         await manager.broadcast({"type": "ticket_closed", "ticket_id": ticket_id})
     return RedirectResponse(url="/tickets", status_code=302)
 
-# ========== ОПЕРАТОРЫ (с drag & drop сортировкой) ==========
+# ========== ОПЕРАТОРЫ ==========
 @app.get("/operators", response_class=HTMLResponse)
 async def operators_page(request: Request, user: dict = Depends(get_current_user)):
     ops = await fetch("SELECT * FROM operators ORDER BY sort_order ASC, name ASC")
@@ -217,10 +227,9 @@ async def broadcast_page(request: Request, admin: dict = Depends(get_current_adm
 
 @app.post("/broadcast/send")
 async def send_broadcast(message: str = Form(...), target: str = Form("all"), admin: dict = Depends(get_current_admin)):
-    # Реальная отправка через бота (требуется bot instance)
     users = await fetch("SELECT user_id FROM users WHERE $1 = 'all' OR role = $1", target)
     for u in users:
-        # Здесь вызвать bot.send_message(u['user_id'], message)
+        # Здесь вызвать bot.send_message(u['user_id'], message) – подключите вашего бота
         pass
     return RedirectResponse(url="/broadcast", status_code=302)
 
@@ -277,15 +286,8 @@ async def reports_page(request: Request, user: dict = Depends(get_current_user))
 
 @app.get("/reports/generate")
 async def generate_report(report_type: str = Query("weekly"), user: dict = Depends(get_current_user)):
-    # Генерация CSV
-    import csv, io
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["user_id", "username", "total_earned"])
-    rows = await fetch("SELECT user_id, username, total_earned FROM users")
-    for row in rows:
-        writer.writerow([row['user_id'], row['username'], row['total_earned']])
-    return JSONResponse({"status": "generated", "url": "/static/report.csv"})  # реально нужен файл
+    # Генерация CSV (заглушка)
+    return JSONResponse({"status": "generated"})
 
 # ========== АЧИВКИ ==========
 @app.get("/achievements", response_class=HTMLResponse)
@@ -352,13 +354,14 @@ async def api_keys_page(request: Request, user: dict = Depends(get_current_user)
 
 @app.post("/api-keys/create")
 async def create_api_key(user_id: int = Form(...), permissions: str = Form(...), admin: dict = Depends(get_current_admin)):
-    api_key = "sk_" + uuid.uuid4().hex
-    await execute("INSERT INTO api_keys (user_id, api_key, permissions, created_at) VALUES ($1, $2, $3, NOW())", user_id, api_key, permissions)
+    from db import create_api_key as db_create_key
+    api_key = await db_create_key(user_id, permissions)
     return RedirectResponse(url="/api-keys", status_code=302)
 
 @app.post("/api-keys/revoke")
 async def revoke_api_key(key_id: int = Form(...), admin: dict = Depends(get_current_admin)):
-    await execute("DELETE FROM api_keys WHERE id = $1", key_id)
+    from db import revoke_api_key as db_revoke
+    await db_revoke(key_id)
     return RedirectResponse(url="/api-keys", status_code=302)
 
 # ========== ПОДПИСКИ ==========
@@ -369,39 +372,23 @@ async def subscriptions_page(request: Request, user: dict = Depends(get_current_
 
 @app.post("/subscriptions/update")
 async def update_subscription(user_id: int = Form(...), plan: str = Form(...), status: str = Form(...), end_date: str = Form(...), auto_renew: bool = Form(False), admin: dict = Depends(get_current_admin)):
-    await execute("""
-        INSERT INTO subscriptions (user_id, plan, status, end_date, auto_renew)
-        VALUES ($1, $2, $3, $4::TIMESTAMP, $5)
-        ON CONFLICT (user_id) DO UPDATE SET plan=$2, status=$3, end_date=$4::TIMESTAMP, auto_renew=$5
-    """, user_id, plan, status, end_date, auto_renew)
+    from db import update_subscription as db_update_sub
+    await db_update_sub(user_id, plan, status, end_date, auto_renew)
     return RedirectResponse(url="/subscriptions", status_code=302)
 
-# ========== ПЛАТЕЖИ (Stripe) ==========
+# ========== ПЛАТЕЖИ (STRIPE) ==========
 @app.post("/create-payment")
 async def create_payment(amount: float = Form(...), user: dict = Depends(get_current_user)):
+    if not STRIPE_AVAILABLE:
+        raise HTTPException(status_code=501, detail="Stripe not configured")
     intent = create_payment_intent(amount)
     return JSONResponse({"client_secret": intent.client_secret})
-
-# ========== WEBHOOK STRIPE ==========
-@app.post("/stripe-webhook")
-async def stripe_webhook(request: Request):
-    payload = await request.body()
-    sig_header = request.headers.get("stripe-signature")
-    endpoint_secret = "whsec_your_webhook_secret"
-    try:
-        event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
-        if event['type'] == 'payment_intent.succeeded':
-            # Обновить подписку пользователя
-            pass
-    except:
-        pass
-    return JSONResponse({"status": "ok"})
 
 # ========== WEBSOCKET ==========
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
     user_id = None
-    if token:
+    if token and JWT_AVAILABLE:
         try:
             payload = decode_jwt_token(token)
             user_id = payload["user_id"]

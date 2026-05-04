@@ -1,204 +1,81 @@
 {% extends "base.html" %}
 {% block title %}Дашборд{% endblock %}
 {% block content %}
-<section class="stats-grid">
-    <div class="stat-card glass">
-        <div class="icon purple pulse"><i class="fas fa-user"></i></div>
+<div class="stat-grid">
+    <div class="stat-card card">
+        <div class="stat-icon"><i class="fas fa-user"></i></div>
         <div class="stat-info">
             <p>ПОЛЬЗОВАТЕЛЕЙ</p>
-            <h3><span id="total-users">{{ stats.total_users }}</span> <span class="trend positive">+{{ new_users_today }}</span></h3>
+            <h3>{{ stats.total_users }}</h3>
         </div>
     </div>
-    <div class="stat-card glass">
-        <div class="icon blue"><i class="fas fa-file-alt"></i></div>
+    <div class="stat-card card">
+        <div class="stat-icon"><i class="fas fa-file-alt"></i></div>
         <div class="stat-info">
             <p>ЗАЯВОК СЕГОДНЯ</p>
-            <h3><span id="submissions-today">{{ stats.submissions_today }}</span> <span class="trend positive">+{{ submissions_growth }}%</span></h3>
+            <h3>{{ stats.submissions_today }}</h3>
         </div>
     </div>
-    <div class="stat-card glass">
-        <div class="icon green"><i class="fas fa-wallet"></i></div>
+    <div class="stat-card card">
+        <div class="stat-icon"><i class="fas fa-dollar-sign"></i></div>
         <div class="stat-info">
             <p>ВЫПЛАЧЕНО СЕГОДНЯ</p>
-            <h3>$<span id="earned-today">{{ stats.earned_today }}</span> <span class="trend positive">+{{ earnings_growth }}%</span></h3>
+            <h3>${{ stats.earned_today }}</h3>
         </div>
     </div>
-    <div class="stat-card glass">
-        <div class="icon orange"><i class="fas fa-clock"></i></div>
-        <div class="stat-info">
-            <p>ЗАЯВОК НА ВЫВОД</p>
-            <h3><span id="pending-withdrawals">{{ stats.pending_withdrawals }}</span></h3>
-        </div>
-    </div>
-    <div class="stat-card glass">
-        <div class="icon red"><i class="fas fa-ticket-alt"></i></div>
+    <div class="stat-card card">
+        <div class="stat-icon"><i class="fas fa-clock"></i></div>
         <div class="stat-info">
             <p>АКТИВНЫХ ТИКЕТОВ</p>
-            <h3><span id="active-tickets">{{ active_tickets_count }}</span></h3>
-        </div>
-    </div>
-</section>
-
-<div class="charts-row">
-    <div class="glass chart-card">
-        <div class="chart-header">
-            <h4>ДИНАМИКА ЗАЯВОК</h4>
-            <div class="period-buttons">
-                <button class="period-btn active" data-period="today">Сегодня</button>
-                <button class="period-btn" data-period="7d">7 дней</button>
-                <button class="period-btn" data-period="30d">30 дней</button>
-            </div>
-        </div>
-        <canvas id="submissionsChart" height="250"></canvas>
-    </div>
-    <div class="glass chart-card">
-        <h4>СООТНОШЕНИЕ ЗАЯВОК</h4>
-        <canvas id="statusChart" height="200"></canvas>
-        <div class="status-legend">
-            <span class="legend accepted">Принятые: {{ ratio.accepted }} ({{ ratio.accepted_pct }}%)</span>
-            <span class="legend rejected">Отклонённые: {{ ratio.rejected }} ({{ ratio.rejected_pct }}%)</span>
-            <span class="legend pending">В обработке: {{ ratio.pending }} ({{ ratio.pending_pct }}%)</span>
+            <h3>{{ stats.active_tickets }}</h3>
         </div>
     </div>
 </div>
 
-<div class="two-columns">
-    <div class="glass notifications-container">
-        <h4><i class="fas fa-bell"></i> УВЕДОМЛЕНИЯ</h4>
-        <div class="notifications-list" id="notifications-list">
-            {% for n in notifications %}
-            <div class="notification-item">
-                <div class="notification-text">{{ n.text }}</div>
-                <div class="notification-time">{{ n.time }}</div>
-            </div>
-            {% endfor %}
-        </div>
-        <button class="btn-outline" onclick="loadMoreNotifications()">Показать все</button>
-    </div>
-    <div class="glass quick-actions">
-        <h4>БЫСТРЫЕ ДЕЙСТВИЯ</h4>
-        <div class="actions-grid">
-            <button onclick="location.href='/broadcast'"><i class="fas fa-bullhorn"></i> Новая рассылка</button>
-            <button onclick="location.href='/reports'"><i class="fas fa-chart-bar"></i> Создать отчёт</button>
-            <button onclick="location.href='/operators'"><i class="fas fa-plus-circle"></i> Добавить оператора</button>
-            <button onclick="location.href='/settings'"><i class="fas fa-sliders-h"></i> Настройки</button>
-            <button onclick="location.href='/users'"><i class="fas fa-user-plus"></i> Добавить пользователя</button>
-            <button onclick="location.href='/export/stats'"><i class="fas fa-download"></i> Экспорт данных</button>
-        </div>
-    </div>
+<div class="card p-3" style="margin-bottom: 20px;">
+    <h4>📈 Динамика заявок</h4>
+    <canvas id="submissionsChart" height="100"></canvas>
 </div>
 
-<section class="table-container glass mt-4">
-    <h4>ПОСЛЕДНИЕ ЗАЯВКИ</h4>
+<div class="card p-3">
+    <h4>📋 Последние заявки</h4>
     <div class="table-responsive">
         <table>
-            <thead>
-                <tr><th>ID</th><th>ПОЛЬЗОВАТЕЛЬ</th><th>НОМЕР</th><th>ОПЕРАТОР</th><th>СУММА</th><th>СТАТУС</th><th>ДЕЙСТВИЯ</th></tr>
-            </thead>
+            <thead><tr><th>ID</th><th>Пользователь</th><th>Сумма</th><th>Статус</th></tr></thead>
             <tbody>
                 {% for sub in recent_submissions %}
                 <tr>
                     <td>#{{ sub.id }}</td>
                     <td>@user{{ sub.user_id }}</td>
-                    <td>{{ sub.phone }}</td>
-                    <td>{{ sub.operator }}</td>
                     <td>${{ sub.price }}</td>
-                    <td>
-                        {% if sub.status == 'pending' %}
-                        <span class="status new">Новая</span>
-                        {% elif sub.status == 'taken' %}
-                        <span class="status process">В работе</span>
-                        {% elif sub.status == 'accepted' %}
-                        <span class="status accepted">Принята</span>
-                        {% elif sub.status == 'rejected' %}
-                        <span class="status rejected">Отклонена</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <form method="post" action="/submissions/accept" style="display:inline;">
-                            <input type="hidden" name="sub_id" value="{{ sub.id }}">
-                            <button class="action-btn accept" title="Принять"><i class="fas fa-check-circle"></i></button>
-                        </form>
-                        <form method="post" action="/submissions/reject" style="display:inline;">
-                            <input type="hidden" name="sub_id" value="{{ sub.id }}">
-                            <button class="action-btn reject" title="Отклонить"><i class="fas fa-times-circle"></i></button>
-                        </form>
-                    </td>
+                    <td><span class="status {% if sub.status == 'accepted' %}accepted{% elif sub.status == 'rejected' %}rejected{% else %}new{% endif %}">{{ sub.status }}</span></td>
                 </tr>
-                {% else %}
-                <tr><td colspan="7" class="text-center">Нет заявок</td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-</section>
-{% endblock %}
+</div>
 
-{% block scripts %}
 <script>
-    let currentPeriod = 'today';
-    let submissionsChart;
-
-    function renderChart(period) {
-        fetch(`/api/analytics/daily?period=${period}`)
-            .then(r => r.json())
-            .then(data => {
-                if (submissionsChart) submissionsChart.destroy();
-                submissionsChart = new Chart(document.getElementById('submissionsChart'), {
-                    type: 'line',
-                    data: {
-                        labels: data.labels,
-                        datasets: [{
-                            label: 'Заявки',
-                            data: data.submissions,
-                            borderColor: '#4e73df',
-                            backgroundColor: 'rgba(78,115,223,0.1)',
-                            tension: 0.3,
-                            fill: true
-                        },{
-                            label: 'Выплаты ($)',
-                            data: data.revenue,
-                            borderColor: '#1cc88a',
-                            backgroundColor: 'rgba(28,200,138,0.1)',
-                            tension: 0.3,
-                            fill: true
-                        }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: true }
-                });
+    fetch('/api/advanced-stats')
+        .then(r => r.json())
+        .then(data => {
+            const hours = data.submissions_by_hour.map(h => h.hour);
+            const counts = data.submissions_by_hour.map(h => h.count);
+            new Chart(document.getElementById('submissionsChart'), {
+                type: 'line',
+                data: {
+                    labels: hours,
+                    datasets: [{
+                        label: 'Заявки по часам',
+                        data: counts,
+                        borderColor: '#a855f7',
+                        tension: 0.3,
+                        fill: true,
+                        backgroundColor: 'rgba(168,85,247,0.1)'
+                    }]
+                }
             });
-    }
-
-    new Chart(document.getElementById('statusChart'), {
-        type: 'doughnut',
-        data: {
-            labels: ['Принятые', 'Отклонённые', 'В обработке'],
-            datasets: [{
-                data: [{{ ratio.accepted }}, {{ ratio.rejected }}, {{ ratio.pending }}],
-                backgroundColor: ['#1cc88a', '#e74a3b', '#f6c23e'],
-                borderWidth: 0
-            }]
-        },
-        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
-    });
-
-    document.querySelectorAll('.period-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            currentPeriod = btn.dataset.period;
-            renderChart(currentPeriod);
         });
-    });
-    renderChart(currentPeriod);
-
-    function loadMoreNotifications() {
-        fetch('/api/notifications?limit=20')
-            .then(r => r.json())
-            .then(data => {
-                const container = document.getElementById('notifications-list');
-                container.innerHTML = data.map(n => `<div class="notification-item"><div class="notification-text">${n.text}</div><div class="notification-time">${n.time}</div></div>`).join('');
-            });
-    }
 </script>
 {% endblock %}

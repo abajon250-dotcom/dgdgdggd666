@@ -12,3 +12,7 @@ if REQUIRED_CHANNEL and not REQUIRED_CHANNEL.startswith("@"):
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL is not set in .env")
+
+# Добавленные секреты
+SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production")
+STRIPE_API_KEY = os.getenv("STRIPE_API_KEY", "")

@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request, Depends, HTTPException, Form, Query, WebSo
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from config import ADMIN_IDS
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import uvicorn
 import aiofiles
@@ -69,6 +70,10 @@ async def get_current_admin(user: dict = Depends(get_current_user)):
     return user
 
 # ========== СТРАНИЦА ВХОДА ==========
+# ... другие импорты
+from config import ADMIN_IDS  # <-- добавьте это
+
+# ========== СТРАНИЦА ВХОДА (по Telegram ID) ==========
 @app.get("/", response_class=HTMLResponse)
 async def login_page(request: Request, error: str = None):
     return templates.TemplateResponse("login.html", {"request": request, "error": error})
